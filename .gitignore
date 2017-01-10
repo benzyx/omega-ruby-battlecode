@@ -26,3 +26,5 @@ battlecode-scaffold.iws
 .classpath
 .project
 .settings/
+.cache-main
+.cache-tests
