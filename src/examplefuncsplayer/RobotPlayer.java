@@ -7,11 +7,11 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_NUMBER_OF_SOLDIERS = 2;
 	public static final int CHANNEL_NUMBER_OF_LUMBERJACKS = 3;
 	public static final int CHANNEL_NUMBER_OF_SCOUTS = 4;
+	public static final int CHANNEL_BUILD_INDEX = 5;
 	public static final int RALLY_POINT = 10;
 	
     static RobotController rc;
     static int myID;
-    static boolean noGardenerYet = true;
     static MapLocation destination = null;
 //    static Direction prevDirection = randomDirection();
     static RobotInfo[] nearbyEnemies;
@@ -21,7 +21,6 @@ public strictfp class RobotPlayer {
     static MapLocation repeller = null;
     static MapLocation[] history = new MapLocation[10];
     static TreeInfo closestTree = null;	// scouts use this to shake trees
-    
 
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -105,7 +104,11 @@ public strictfp class RobotPlayer {
 	            			}
 	            		}
 	            	}
-	            	if (rc.canFireSingleShot() && dir != null)
+	            	if (rc.canFirePentadShot() && dir != null)
+	            	{
+	            		rc.firePentadShot(dir);
+	            	}
+	            	else if (rc.canFireSingleShot() && dir != null)
 	            	{
 	            		rc.fireSingleShot(dir);
 	            	}
@@ -148,23 +151,81 @@ public strictfp class RobotPlayer {
     	}
     }
     
-    public static void attemptBuild(int iter, RobotType type) throws GameActionException
+    // When the type parameter is ARCHON, we build a TREE instead.
+    public static boolean attemptBuild(int iter, RobotType type) throws GameActionException
     {
-    	for (int i = 0; i < iter; i++)
-    	{
-    		Direction dir = randomDirection();
-    		if (rc.canBuildRobot(type, dir))
-    		{
-    			rc.buildRobot(type, dir);
-    		}
-    	}
+		if (type == RobotType.ARCHON){
+			for (int i = 0; i < iter; i++)
+	    	{
+	    		Direction dir = randomDirection();
+	    		if (rc.canPlantTree(dir)){
+	    			rc.plantTree(dir);
+	    			return true;
+	    		}
+	    	}
+		}
+		else
+		{
+			for (int i = 0; i < iter; i++)
+	    	{
+	    		Direction dir = randomDirection();
+	    		if (rc.canBuildRobot(type, dir)){
+    	    		rc.buildRobot(type, dir);
+        			return true;
+	    		}
+	    	}
+		}
+
+    	return false;
     }
     
     public static void gardenerSpecificLogic() throws GameActionException
     {
-    	if (rc.readBroadcast(CHANNEL_NUMBER_OF_SCOUTS) == 0){
-    		attemptBuild(10, RobotType.SCOUT);
+    	int buildIndex = rc.readBroadcast(CHANNEL_BUILD_INDEX);
+    	
+		RobotType next = getBuildOrderNext(buildIndex);
+		if (next != null){
+			if (attemptBuild(10, next)){
+				rc.broadcast(CHANNEL_BUILD_INDEX, buildIndex+1);
+			}
+		}
+		else{
+			macro();
+		}
+		
+		
+    }
+    
+    // What to build after our build order is done
+    public static void macro() throws GameActionException
+    {
+    	if (rc.getTeamBullets() > 150){
+    		long r = rand();
+    		if (r < 135){
+    			attemptBuild(10, RobotType.ARCHON);
+    		}
+    		if (r < 270){
+    			attemptBuild(10, RobotType.SOLDIER);
+    		}
+    		if (r < 360){
+    			attemptBuild(10, RobotType.SCOUT);
+    		}
     	}
+    }
+    
+    // Determines the next object to build in the build order. 
+    // !!!! If the return object is Archon, build a Tree. !!!!
+    public static RobotType getBuildOrderNext(int index){
+    	 RobotType[] buildOrder = 
+    	{
+    			RobotType.SCOUT,
+    			RobotType.SOLDIER,
+    			RobotType.ARCHON,
+    			RobotType.ARCHON,
+    			RobotType.SOLDIER,
+    			null
+    	};
+    	return buildOrder[index];
     }
     
     public static long badness(MapLocation loc)
@@ -438,4 +499,5 @@ public strictfp class RobotPlayer {
     	rc.broadcast(pos++, (int) val.y);
     	return pos;
     }
+    
 }
