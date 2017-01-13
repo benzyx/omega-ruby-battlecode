@@ -209,7 +209,7 @@ public strictfp class RobotPlayer {
 		for (TreeInfo info : nearbyTrees)
 		{
 			if (rc.canWater(info.ID)){
-				if (info.health < lowestHP){
+				if (info.health < lowestHP && info.team == rc.getTeam()){
 					lowestHP = info.health;
 					bestTree = info;
 				}
@@ -296,6 +296,8 @@ public strictfp class RobotPlayer {
     		return 1000;
     	case ARCHON:
     		return 200;
+    	case SOLDIER:
+    		return 5000;
     	default:
     		return 0;
     	}
@@ -331,7 +333,7 @@ public strictfp class RobotPlayer {
     	case ARCHON:
     		return 3.1f;
     	case SOLDIER:
-    		return 10;
+    		return 2.1f;
     	default:
     		return 0;
     	}
