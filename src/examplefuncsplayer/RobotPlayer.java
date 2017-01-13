@@ -84,10 +84,11 @@ public strictfp class RobotPlayer {
 	            				closestTree = info;
 	            			}
 	            		}
-	            	}
-	            	
-	            	if (closestTree != null && rc.canShake(closestTree.ID)){
-	            		rc.shake(closestTree.ID);
+	            		rc.setIndicatorDot(closestTree.location, 255, 0, 0);
+	            		if (closestTree != null && rc.canShake(closestTree.ID)){
+		            		rc.setIndicatorDot(closestTree.location, 0, 255, 0);
+		            		rc.shake(closestTree.ID);
+		            	}
 	            	}
 	            	
 	            	long bestVal = 0;
@@ -104,7 +105,7 @@ public strictfp class RobotPlayer {
 	            			}
 	            		}
 	            	}
-	            	if (rc.canFirePentadShot() && dir != null)
+	            	if (rc.getTeamBullets() > 100 && rc.canFirePentadShot() && dir != null)
 	            	{
 	            		rc.firePentadShot(dir);
 	            	}
