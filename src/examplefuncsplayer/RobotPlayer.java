@@ -20,6 +20,7 @@ public strictfp class RobotPlayer {
     static TreeInfo[] nearbyTrees;
     static MapLocation repeller = null;
     static MapLocation[] history = new MapLocation[10];
+    static TreeInfo closestTree = null;	// scouts use this to shake trees
     
 
     /**
@@ -72,6 +73,24 @@ public strictfp class RobotPlayer {
 	            	{
 	            		rc.move(loc);
 	            	}
+	            	
+	            	if (rc.getType() == RobotType.SCOUT){
+	            		float minDist = 99999999;
+	            		closestTree = null;
+	            		for (TreeInfo info : nearbyTrees)
+	            		{
+	            			if(info.containedBullets > 0 && info.getLocation().distanceTo(rc.getLocation()) < minDist)
+	            			{
+	            				minDist = info.getLocation().distanceTo(rc.getLocation());
+	            				closestTree = info;
+	            			}
+	            		}
+	            	}
+	            	
+	            	if (closestTree != null && rc.canShake(closestTree.ID)){
+	            		rc.shake(closestTree.ID);
+	            	}
+	            	
 	            	long bestVal = 0;
 	            	Direction dir = null;
 	            	for (RobotInfo info : nearbyEnemies)
@@ -143,26 +162,38 @@ public strictfp class RobotPlayer {
     
     public static void gardenerSpecificLogic() throws GameActionException
     {
-    	attemptBuild(10, RobotType.SOLDIER);
+    	if (rc.readBroadcast(CHANNEL_NUMBER_OF_SCOUTS) == 0){
+    		attemptBuild(10, RobotType.SCOUT);
+    	}
     }
     
     public static long badness(MapLocation loc)
     {
+    	
     	long ret = (long) (destination.distanceTo(loc) * 1000);
-    	
-    	ret -= (long) (loc.distanceTo(repeller) * 700);
-    	
-    	for (RobotInfo info : nearbyEnemies)
+    
+    	// Scout code: Look for trees and shake 'em
+    	if (rc.getType() == RobotType.SCOUT)
     	{
-			float d = info.getLocation().distanceTo(loc);
-			float ideal = getIdealDistance(info.getType());
-			if (ideal < 0)
-				continue;
-			d -= ideal;
-			d *= d;
-			ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
+    		if (closestTree != null){
+    			ret += closestTree.getLocation().distanceTo(loc) * 5000;
+    		}
     	}
-    	
+    	else
+    	{
+	    	ret -= (long) (loc.distanceTo(repeller) * 700);
+	    	
+	    	for (RobotInfo info : nearbyEnemies)
+	    	{
+				float d = info.getLocation().distanceTo(loc);
+				float ideal = getIdealDistance(info.getType());
+				if (ideal < 0)
+					continue;
+				d -= ideal;
+				d *= d;
+				ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
+	    	}
+    	}
     	return ret;
     }
     
@@ -175,6 +206,26 @@ public strictfp class RobotPlayer {
     		return 1000;
     	case ARCHON:
     		return 200;
+    	default:
+    		return 0;
+    	}
+    }
+    
+    public static float getStride(RobotType t)
+    {
+    	switch (t) {
+    	case LUMBERJACK:
+    		return 1.5f;
+    	case GARDENER:
+    		return 1;
+    	case ARCHON:
+    		return 1;
+    	case SCOUT:
+    		return 2.5f;
+    	case TANK:
+    		return 1;
+    	case SOLDIER:
+    		return 2;
     	default:
     		return 0;
     	}
@@ -222,7 +273,7 @@ public strictfp class RobotPlayer {
     	}
     	while (Clock.getBytecodesLeft() > 1000)
     	{
-			MapLocation cand = rc.getLocation().add(randomDirection());
+			MapLocation cand = rc.getLocation().add(randomDirection(), getStride(rc.getType()));
 			if (rc.canMove(cand))
 			{
 				long b = badness(cand);
