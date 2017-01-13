@@ -194,6 +194,13 @@ public strictfp class RobotPlayer {
 			macro();
 		}
 		
+		for (TreeInfo info : nearbyTrees)
+		{
+			if (rc.canWater(info.ID)){
+				rc.water(info.ID);
+			}
+		}
+		
 		
     }
     
