@@ -84,11 +84,14 @@ public strictfp class RobotPlayer {
 	            				closestTree = info;
 	            			}
 	            		}
-	            		rc.setIndicatorDot(closestTree.location, 255, 0, 0);
-	            		if (closestTree != null && rc.canShake(closestTree.ID)){
-		            		rc.setIndicatorDot(closestTree.location, 0, 255, 0);
-		            		rc.shake(closestTree.ID);
-		            	}
+	            		
+	            		if (closestTree != null){
+	            			rc.setIndicatorDot(closestTree.location, 255, 0, 0);
+	            			if (rc.canShake(closestTree.ID)){
+			            		rc.setIndicatorDot(closestTree.location, 0, 255, 0);
+			            		rc.shake(closestTree.ID);
+			            	}
+	            		}
 	            	}
 	            	
 	            	long bestVal = 0;
@@ -145,7 +148,13 @@ public strictfp class RobotPlayer {
 	    			break;
 	    		}
 	    	}
-	    	if (!seesGardener)
+	    	if (!seesGardener || rc.getTeamBullets() > 300)
+	    	{
+	        	attemptBuild(10, RobotType.GARDENER);    		
+	    	}
+    	}
+    	else{
+    		if (rc.getTeamBullets() > 275)
 	    	{
 	        	attemptBuild(10, RobotType.GARDENER);    		
 	    	}
@@ -194,11 +203,20 @@ public strictfp class RobotPlayer {
 			macro();
 		}
 		
+		float lowestHP = 99999;
+		TreeInfo bestTree = null;
 		for (TreeInfo info : nearbyTrees)
 		{
 			if (rc.canWater(info.ID)){
-				rc.water(info.ID);
+				if (info.health < lowestHP){
+					lowestHP = info.health;
+					bestTree = info;
+				}
 			}
+		}
+		if (bestTree != null){
+			rc.water(bestTree.ID);
+			rc.setIndicatorDot(bestTree.location, 0, 0, 255);
 		}
 		
 		
@@ -230,6 +248,7 @@ public strictfp class RobotPlayer {
     			RobotType.SOLDIER,
     			RobotType.ARCHON,
     			RobotType.ARCHON,
+    			RobotType.SOLDIER,
     			RobotType.SOLDIER,
     			null
     	};
@@ -498,14 +517,24 @@ public strictfp class RobotPlayer {
     
     public static MapLocation readPoint(int pos) throws GameActionException
     {
-    	return new MapLocation(rc.readBroadcast(pos), rc.readBroadcast(pos + 1));
+    	return new MapLocation(rc.readBroadcast(pos)/1000.0f, rc.readBroadcast(pos + 1)/1000.0f);
     }
     
     public static int writePoint(int pos, MapLocation val) throws GameActionException
     {
-    	rc.broadcast(pos++, (int) val.x);
-    	rc.broadcast(pos++, (int) val.y);
+    	rc.broadcast(pos++, (int) val.x*1000);
+    	rc.broadcast(pos++, (int) val.y*1000);
     	return pos;
+    }
+    
+    public static void randomWalk() throws GameActionException{
+    	for(int i = 0; i<10; i++){
+    		Direction dir = randomDirection();
+    		if (rc.canMove(dir, getStride(rc.getType())))
+    		{
+    			rc.move(dir, getStride(rc.getType()));
+    		}
+    	}
     }
     
 }
