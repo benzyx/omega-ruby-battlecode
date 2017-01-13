@@ -84,15 +84,7 @@ public strictfp class RobotPlayer {
             		archonSpecificLogic();
             		break;
             	}
-            	selectOptimalMove();
-            	MapLocation loc = opti;
-            	rc.setIndicatorLine(rc.getLocation(), loc, 255, 0, 255);
             	
-            	if (rc.canMove(loc))
-            	{
-            		rc.move(loc);
-            	}
-	   
             	if (rc.getType() == RobotType.SCOUT){
             		float minDist = 99999999;
             		closestTree = null;
@@ -113,22 +105,38 @@ public strictfp class RobotPlayer {
 		            	}
             		}
             	}
+            	
+            	selectOptimalMove();
+            	MapLocation loc = opti;
+            	rc.setIndicatorLine(rc.getLocation(), loc, 255, 0, 255);
+            	
+            	if (rc.canMove(loc) && !rc.hasMoved())
+            	{
+            		rc.move(loc);
+            	}
+	   
+            	
 	            	
             	long bestVal = 0;
             	Direction dir = null;
+            	RobotType enemyType = null;
+            	float enemyDistance = 0;
             	for (RobotInfo info : nearbyEnemies)
             	{
-//            		if (rc.getLocation().distanceTo(info.getLocation()) < 6)
+            		float dist = rc.getLocation().distanceTo(info.getLocation());
+            		if (dist < 6)
             		{
             			long val = (long) getIdealDistanceMultiplier(info.getType());
             			if (dir == null || val > bestVal)
             			{
             				bestVal = val;
-            				dir = rc.getLocation().directionTo(info.getLocation());	            				
+            				dir = rc.getLocation().directionTo(info.getLocation());
+            				enemyType = info.getType();
+            				enemyDistance = dist;
             			}
             		}
             	}
-            	if (rc.canFirePentadShot() && dir != null)
+            	if (dir != null && rc.canFirePentadShot() && enemyType != RobotType.ARCHON && enemyDistance < 4.2 )
             	{
             		rc.firePentadShot(dir);
             	}
@@ -157,27 +165,10 @@ public strictfp class RobotPlayer {
     
     public static void archonSpecificLogic() throws GameActionException
     {
-    	if (myID == 0)
+    	int gardeners = rc.readBroadcast(CHANNEL_NUMBER_OF_GARDENERS);
+	    if (gardeners == 0 || rc.getTreeCount() > gardeners*4 || rc.getTeamBullets() > 300)
     	{
-    		boolean seesGardener = false;
-	    	for (RobotInfo robot : nearbyFriends)
-	    	{
-	    		if (robot.getType() == RobotType.GARDENER)
-	    		{
-	    			seesGardener = true;
-	    			break;
-	    		}
-	    	}
-	    	if (!seesGardener || rc.getTeamBullets() > 300)
-	    	{
-	        	attemptBuild(10, RobotType.GARDENER);    		
-	    	}
-    	}
-    	else{
-    		if (rc.getTeamBullets() > 275)
-	    	{
-	        	attemptBuild(10, RobotType.GARDENER);    		
-	    	}
+        	attemptBuild(10, RobotType.GARDENER);    		
     	}
     	randomWalk();
     }
@@ -188,7 +179,7 @@ public strictfp class RobotPlayer {
 		if (type == RobotType.ARCHON){
 			for (int i = 0; i < iter; i++)
 	    	{
-	    		Direction dir = randomDirection();
+	    		Direction dir = randomDirection(60);
 	    		if (rc.canPlantTree(dir)){
 	    			rc.plantTree(dir);
 	    			return true;
@@ -239,9 +230,6 @@ public strictfp class RobotPlayer {
 			rc.water(bestTree.ID);
 			rc.setIndicatorDot(bestTree.location, 0, 0, 255);
 		}
-		
-		randomWalk();
-		
     }
     
     // What to build after our build order is done
@@ -249,7 +237,7 @@ public strictfp class RobotPlayer {
     {
     	if (rc.getTeamBullets() > 150){
     		long r = rand();
-    		if (r < 135){
+    		if (r < 180){
     			attemptBuild(10, RobotType.ARCHON);
     		}
     		if (r < 270){
@@ -302,19 +290,18 @@ public strictfp class RobotPlayer {
     			ret += closestTree.getLocation().distanceTo(loc) * 5000;
     		}
     	}
-    	else
-    	{	    	
-	    	for (RobotInfo info : nearbyEnemies)
-	    	{
-				float d = info.getLocation().distanceTo(loc);
-				float ideal = getIdealDistance(info.getType());
-				if (ideal < 0)
-					continue;
-				d -= ideal;
-				d *= d;
-				ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
-	    	}
+    		    	
+    	for (RobotInfo info : nearbyEnemies)
+    	{
+			float d = info.getLocation().distanceTo(loc);
+			float ideal = getIdealDistance(info.getType());
+			if (ideal < 0)
+				continue;
+			d -= ideal;
+			d *= d;
+			ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
     	}
+    	
     	
     	for (int i = 0; i < importantBulletIndex; i++)
     	{
@@ -581,6 +568,10 @@ public strictfp class RobotPlayer {
     static Direction randomDirection() {
         return new Direction((float) (rand() / Math.PI / 2));
     }
+    
+    static Direction randomDirection(int deg) {
+        return new Direction((float) ((rand()/deg*deg) / Math.PI / 2));
+    }
 
     /**
      * Attempts to move in a given direction, while avoiding small obstacles directly in the path.
@@ -691,18 +682,12 @@ public strictfp class RobotPlayer {
     	return pos;
     }
     
-    public static void randomWalk() throws GameActionException{
-    	if (true) {
-    		return;
-    	}
-    	for(int i = 0; i<10; i++){
-    		Direction dir = randomDirection();
-    		if (rc.canMove(dir, getStride(rc.getType())))
-    		{
-    			rc.move(dir, getStride(rc.getType()));
-    			break;
-    		}
-    	}
+    public static void randomWalk() throws GameActionException{	
+		Direction dir = randomDirection();
+		if (rc.canMove(dir, getStride(rc.getType())))
+		{
+			rc.move(dir, getStride(rc.getType()));
+		}
     }
     
 }
