@@ -89,9 +89,9 @@ public strictfp class RobotPlayer {
         {
         	freeRange = true;
         }
+    	theirSpawns = rc.getInitialArchonLocations(rc.getTeam().opponent());
         if (myType == RobotType.ARCHON)
         {
-        	theirSpawns = rc.getInitialArchonLocations(rc.getTeam().opponent());
         	if (myID == 0)
         	{
             	MapLocation them = theirSpawns[0];
@@ -194,7 +194,17 @@ public strictfp class RobotPlayer {
 		            	}
             		}
             	}
-            	else if (isLumberjack)
+            	
+            	selectOptimalMove();
+            	MapLocation loc = opti;
+            	
+            	if (rc.canMove(loc) && !rc.hasMoved())
+            	{
+            		rc.move(loc);
+            		myLocation = loc;
+            	}     	
+	            
+            	if (isLumberjack)
             	{
             		float minDist = 99999999;
             		closestTree = null;
@@ -247,17 +257,7 @@ public strictfp class RobotPlayer {
 		            	}
             		}
             	}
-            	
-            	selectOptimalMove();
-            	MapLocation loc = opti;
-            	
-            	if (rc.canMove(loc) && !rc.hasMoved())
-            	{
-            		rc.move(loc);
-            		myLocation = loc;
-            	}     	
-	            	
-            	if (isSoldier || isTank)
+            	else if (isSoldier || isTank)
             	{
 	            	long bestVal = 0;
 	            	Direction dir = null;
@@ -644,7 +644,7 @@ public strictfp class RobotPlayer {
 					continue;
 				if (isSoldier && bruteDefence)
 					ideal = 0;
-				if (isLumberjack && freeRange)
+				if (isLumberjack)
 					ideal = 0;
 				if (isScout)
 					ideal = 6;
@@ -848,7 +848,7 @@ public strictfp class RobotPlayer {
     	case GARDENER:
     		return 3000;
     	case ARCHON:
-    		return -100;
+    		return theirSpawns.length == 1 ? 1500 : -100;
     	case SOLDIER:
     	case TANK:
     		return 2500;
