@@ -1,4 +1,4 @@
-package examplefuncsplayer;
+package scoutrush;
 import battlecode.common.*;
 
 public strictfp class RobotPlayer {
@@ -78,7 +78,7 @@ public strictfp class RobotPlayer {
         myID = rc.readBroadcast(myNumberOfChannel());
         rc.broadcast(myNumberOfChannel(), myID + 1);
         
-        if (isSoldier && myID % 2 == 1)
+        if (isScout || (isSoldier && myID % 2 == 1))
         {
         	freeRange = true;
         }
@@ -391,6 +391,9 @@ public strictfp class RobotPlayer {
     	
     	if (isGardener)
     	{
+    		if (rc.getRoundNum() < 500 && rand() < 10){
+    			attemptBuild(10, RobotType.SCOUT);
+    		}
     		if (lumberjacks < soldiers / 3 && rand() < 10 && rc.senseNearbyTrees(-1, Team.NEUTRAL).length > 0)
     		{
     			attemptBuild(10, RobotType.LUMBERJACK);
@@ -399,7 +402,6 @@ public strictfp class RobotPlayer {
     		{
     			attemptBuild(10, RobotType.LUMBERJACK);
     		}
-
     		if ((soldiers < trees / 4 || soldiers < 2) && rand() < 10)
     		{
     			attemptBuild(10, RobotType.SOLDIER);
@@ -429,6 +431,9 @@ public strictfp class RobotPlayer {
     			RobotType.SOLDIER,
     			RobotType.ARCHON,
     			RobotType.ARCHON,
+    			RobotType.SCOUT,
+    			RobotType.SCOUT,
+    			RobotType.SCOUT,
     			null
     	};
     	return buildOrder[index];

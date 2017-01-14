@@ -49,7 +49,10 @@ public strictfp class RobotPlayer {
     static int oldGardenerLocChannel, newGardenerLocChannel;
     static MapLocation[] gardenerLocs = new MapLocation[0];
     static boolean bruteDefence; // disable complicated dodging when defending a gardener
-
+    static boolean freeRange;
+    static MapLocation[] theirSpawns;
+    static int retargetCount;
+    
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
      * If this method returns, the robot dies!
@@ -74,6 +77,11 @@ public strictfp class RobotPlayer {
 
         myID = rc.readBroadcast(myNumberOfChannel());
         rc.broadcast(myNumberOfChannel(), myID + 1);
+        
+        if (isSoldier && myID % 2 == 1)
+        {
+        	freeRange = true;
+        }
         if (myType == RobotType.ARCHON)
         {
         	if (myID == 0)
@@ -98,6 +106,10 @@ public strictfp class RobotPlayer {
         		
             	onRoundBegin();
                 destination = readPoint(RALLY_POINT);
+                if (freeRange && theirSpawns == null)
+                {
+                	theirSpawns = rc.getInitialArchonLocations(rc.getTeam().opponent());
+                }
             	switch (myType)
             	{
             	case GARDENER:
@@ -108,11 +120,31 @@ public strictfp class RobotPlayer {
             		break;
             	}
             	
-            	if (isScout){
+        		if (freeRange)
+        		{
+        			if (retargetCount < theirSpawns.length)
+        			{
+        				currentTarget = theirSpawns[retargetCount];
+        			}
+        			else if (round % 40 == 0)
+        			{
+        				currentTarget = myLocation.add(randomDirection(), 100);
+        			}
+        		}
+        		else
+        		{
             		if (currentTarget == null || round % 30 == 0)
             		{
             			currentTarget = myLocation.add(randomDirection(), 100);
-            		}
+            		}        			
+        		}
+        		
+        		if (freeRange)
+        		{
+        			destination = currentTarget;
+        		}
+            	
+            	if (isScout){
             		
             		float minDist = 99999999;
             		closestTree = null;
@@ -182,7 +214,7 @@ public strictfp class RobotPlayer {
             		myLocation = loc;
             	}     	
 	            	
-            	if (isSoldier || isTank)
+            	if (isSoldier || isTank || isScout)
             	{
 	            	long bestVal = 0;
 	            	Direction dir = null;
@@ -280,12 +312,13 @@ public strictfp class RobotPlayer {
     	return false;
     }
     
-    static int gardeners, soldiers, trees, lumberjacks;
+    static int gardeners, soldiers, trees, lumberjacks, scouts;
     static void getMacroStats() throws GameActionException
     {
     	gardeners = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_GARDENERS));
     	soldiers = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_SOLDIERS));
     	lumberjacks = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_LUMBERJACKS));
+    	scouts = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_SCOUTS));
     	trees = rc.getTreeCount();
     }
     
@@ -358,7 +391,10 @@ public strictfp class RobotPlayer {
     	
     	if (isGardener)
     	{
-    		if (lumberjacks < soldiers / 3 && lumberjacks <3 && rand() < 10)
+    		if (rc.getRoundNum() < 250 && rand() < 10){
+    			attemptBuild(10, RobotType.SCOUT);
+    		}
+    		if (lumberjacks < soldiers / 3 && rand() < 10 && rc.senseNearbyTrees(-1, Team.NEUTRAL).length > 0)
     		{
     			attemptBuild(10, RobotType.LUMBERJACK);
     		}
@@ -395,6 +431,9 @@ public strictfp class RobotPlayer {
     			RobotType.SOLDIER,
     			RobotType.ARCHON,
     			RobotType.ARCHON,
+    			RobotType.SCOUT,
+    			RobotType.SCOUT,
+    			RobotType.SCOUT,
     			null
     	};
     	return buildOrder[index];
@@ -416,7 +455,11 @@ public strictfp class RobotPlayer {
     	{
     		if (!bruteDefence)
     		{
-	    		float d = loc.distanceTo(destination) - controlRadius;
+	    		float d = loc.distanceTo(destination);
+	    		if (!freeRange)
+	    		{
+	    			d -= controlRadius;
+	    		}
 	    		d *= d;
 	    		ret += 1000 * d;
 	    		if (isSoldier && round - helpRound <= 1)
@@ -459,7 +502,7 @@ public strictfp class RobotPlayer {
 				float ideal = getIdealDistance(info.getType());
 				if (ideal < 0)
 					continue;
-				if (isSoldier)
+				if (isSoldier && bruteDefence)
 					ideal = 0;
 				if (isScout)
 					ideal = 6;
@@ -514,7 +557,7 @@ public strictfp class RobotPlayer {
     			{
     				ret += 1000 * 20 * damage * damage * info.location.distanceTo(loc);
     			}
-    			if (gardeners == 1 && failedTreeBuild)
+    			if (failedTreeBuild)
     			{
     				ret -= 20000 * loc.distanceTo(info.location);
     			}
@@ -657,17 +700,24 @@ public strictfp class RobotPlayer {
     
     public static float getIdealDistanceMultiplier(RobotType t)
     {
+    	float mul;
+    	if (freeRange)
+    		mul = 10;
+    	else
+    		mul = 1;
     	switch (t) {
     	case LUMBERJACK:
-    		return 1000;
+    		return mul * 1000;
     	case GARDENER:
-    		return 500;
+    		if (isScout) return mul * 6000;
+    		return mul * 500;
     	case ARCHON:
-    		return 200;
+    		return mul * 200;
     	case SOLDIER:
-    		return 5000;
+    	case TANK:
+    		return mul * 5000;
     	case SCOUT:
-    		return 3000;
+    		return mul * 3000;
     	default:
     		return 0;
     	}
@@ -688,6 +738,7 @@ public strictfp class RobotPlayer {
     	case ARCHON:
     		return 3.1f;
     	case SOLDIER:
+    	case TANK:
     		return 5;
     	case SCOUT:
     		return 2.1f;
@@ -818,21 +869,12 @@ public strictfp class RobotPlayer {
     	oldGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 100 * (round % 2);
     	newGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 100 * ((round + 1) % 2);
     	
+    	// Only the first bot of each round runs this code.
     	if (rc.readBroadcast(CHANNEL_CURRENT_ROUND) != round)
     	{
-    		if (round % 10 == 0)
-    		{
-    			rc.broadcast(CHANNEL_CONTROL_RADIUS, 0);
-    		}
-    		rc.broadcast(CHANNEL_CURRENT_ROUND, round);
-    		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_ARCHONS), 0);
-    		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_GARDENERS), 0);
-    		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_SOLDIERS), 0);
-    		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_TANKS), 0);
-    		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_LUMBERJACKS), 0);
-    		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_SCOUTS), 0);
-    		rc.broadcast(newGardenerLocChannel, 0);
+    		initRound();
     	}
+    	
     	int myWrite = writeNumberChannel(numberOfChannel);
     	rc.broadcast(myWrite, rc.readBroadcast(myWrite) + 1);
 
@@ -867,6 +909,22 @@ public strictfp class RobotPlayer {
     	}
     }
     
+    // init
+    static void initRound() throws GameActionException{
+    	if (round % 10 == 0)
+		{
+			rc.broadcast(CHANNEL_CONTROL_RADIUS, 0);
+		}
+		rc.broadcast(CHANNEL_CURRENT_ROUND, round);
+		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_ARCHONS), 0);
+		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_GARDENERS), 0);
+		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_SOLDIERS), 0);
+		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_TANKS), 0);
+		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_LUMBERJACKS), 0);
+		rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_SCOUTS), 0);
+		rc.broadcast(newGardenerLocChannel, 0);
+    }
+    
     static long crnt = 17;
     
     static long rand()
@@ -882,11 +940,11 @@ public strictfp class RobotPlayer {
      * @return a random Direction
      */
     static Direction randomDirection() {
-        return new Direction((float) (rand() / 6.283185307179586476925286766559));
+        return new Direction(rand() / 6.283185307179586476925286766559f);
     }
     
     static Direction randomDirection(int deg) {
-        return new Direction((float) ((rand()/deg*deg) / 6.283185307179586476925286766559));
+        return new Direction((rand()/deg*deg) / 6.283185307179586476925286766559f);
     }
 
     /**
