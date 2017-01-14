@@ -35,8 +35,8 @@ public strictfp class RobotPlayer {
     static BulletInfo[] nearbyBullets;
     static TreeInfo[] nearbyTrees;
     static TreeInfo[] neutralTrees;
-    static MapLocation[] repellers = new MapLocation[10];
-    static int[] repelWeight = new int[10];
+    static MapLocation[] repellers = new MapLocation[25];
+    static int[] repelWeight = new int[25];
 //    static MapLocation[] history = new MapLocation[10];
     static TreeInfo closestTree = null;	// scouts use this to shake trees
     static int numberOfChannel;
@@ -85,7 +85,7 @@ public strictfp class RobotPlayer {
         myID = rc.readBroadcast(myNumberOfChannel());
         rc.broadcast(myNumberOfChannel(), myID + 1);
         
-        if (isSoldier && myID % 2 == 1)
+        if (isSoldier && myID % 4 != 1)
         {
         	freeRange = true;
         }
@@ -170,7 +170,6 @@ public strictfp class RobotPlayer {
         		
         		if (freeRange)
         		{
-        			destination = currentTarget;
         			rc.setIndicatorLine(myLocation, currentTarget, 100, 0, 100);
         		}
             	
@@ -463,7 +462,7 @@ public strictfp class RobotPlayer {
 			}
 		}
 		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
-				gardeners <= 3 && rc.getTeamBullets() > 125 && trees > 0)
+				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners + 1 < trees)
 		{
 			wantGardener = true;
 		}
@@ -519,7 +518,7 @@ public strictfp class RobotPlayer {
     		{
     			attemptBuild(10, RobotType.LUMBERJACK);
     		}
-    		if ((soldiers < trees / 4 || soldiers < 2) && rand() < 10)
+    		if ((soldiers < trees / 2 || soldiers < 2))
     		{
     			attemptBuild(10, RobotType.SOLDIER);
     		}
@@ -545,13 +544,14 @@ public strictfp class RobotPlayer {
     public static RobotType getBuildOrderNext(int index){
     	 RobotType[] buildOrder = 
     	{
+     			RobotType.ARCHON,
     			RobotType.SCOUT,
     			RobotType.SOLDIER,
     			RobotType.ARCHON,
-    			RobotType.ARCHON,
+    			null,
     			null
     	};
-    	if (index == 1 && neutralTrees.length > 10)
+    	if (index == 4 && neutralTrees.length > 10)
     	{
     		return RobotType.LUMBERJACK;
     	}
@@ -580,7 +580,11 @@ public strictfp class RobotPlayer {
     		if (!bruteDefence)
     		{
 	    		float d = loc.distanceTo(destination);
-	    		if (!freeRange)
+	    		if (freeRange)
+	    		{
+	    			ret += 1000 * loc.distanceTo(currentTarget);
+	    		}
+	    		else
 	    		{
 	    			d -= controlRadius;
 	    			if (d < -5)
@@ -592,11 +596,6 @@ public strictfp class RobotPlayer {
 			    		d *= d;
 			    		ret += 1000 * d;
 	    			}
-	    		}
-	    		else
-	    		{
-		    		d *= d;
-		    		ret += 1000 * d;
 	    		}
 	    		if (isSoldier && round - helpRound <= 1)
 	    		{
@@ -619,13 +618,12 @@ public strictfp class RobotPlayer {
     	}
     	else
     	{
-    		for (int i = 0; i < repellers.length; i++)
-    		{
-    			if (repelWeight[i] > 0)
-    			{
-    				ret -= repelWeight[i] * loc.distanceTo(repellers[i]);
-    			}
-    		}
+    		int i = (round + repellers.length - 1) % repellers.length;
+			if (repelWeight[i] > 0)
+			{
+				float d = loc.distanceTo(repellers[i]);
+				ret -= Math.sqrt(d) * repelWeight[i];
+			}
     	}
     	
     	if (!threatened && !failedTreeBuild)
@@ -844,23 +842,18 @@ public strictfp class RobotPlayer {
     
     public static float getIdealDistanceMultiplier(RobotType t)
     {
-    	float mul;
-    	if (freeRange)
-    		mul = 10;
-    	else
-    		mul = 1;
     	switch (t) {
     	case LUMBERJACK:
-    		return mul * 1000;
+    		return 2000;
     	case GARDENER:
-    		return mul * 500;
+    		return 3000;
     	case ARCHON:
     		return -100;
     	case SOLDIER:
     	case TANK:
-    		return mul * 5000;
+    		return 2500;
     	case SCOUT:
-    		return 0;
+    		return freeRange ? 0 : 500;
     	default:
     		return 0;
     	}
@@ -976,10 +969,10 @@ public strictfp class RobotPlayer {
     public static void onRoundBegin() throws GameActionException
     {
     	int idx = round % repellers.length;
-    	if (!isGardener)
+    	if (freeRange)
     	{
 	    	repellers[idx] = rc.getLocation();
-	    	repelWeight[idx] = 120;
+	    	repelWeight[idx] = 10000;
     	}
     	nearbyFriends = rc.senseNearbyRobots(100, rc.getTeam());
     	nearbyEnemies = rc.senseNearbyRobots(100, rc.getTeam().opponent());
