@@ -1,4 +1,4 @@
-package examplefuncsplayer;
+package test;
 import battlecode.common.*;
 
 public strictfp class RobotPlayer {
@@ -49,10 +49,7 @@ public strictfp class RobotPlayer {
     static int oldGardenerLocChannel, newGardenerLocChannel;
     static MapLocation[] gardenerLocs = new MapLocation[0];
     static boolean bruteDefence; // disable complicated dodging when defending a gardener
-    static boolean freeRange;
-    static MapLocation[] theirSpawns;
-    static int retargetCount;
-    
+
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
      * If this method returns, the robot dies!
@@ -77,11 +74,6 @@ public strictfp class RobotPlayer {
 
         myID = rc.readBroadcast(myNumberOfChannel());
         rc.broadcast(myNumberOfChannel(), myID + 1);
-        
-        if (isSoldier && myID % 2 == 1)
-        {
-        	freeRange = true;
-        }
         if (myType == RobotType.ARCHON)
         {
         	if (myID == 0)
@@ -106,10 +98,6 @@ public strictfp class RobotPlayer {
         		
             	onRoundBegin();
                 destination = readPoint(RALLY_POINT);
-                if (freeRange && theirSpawns == null)
-                {
-                	theirSpawns = rc.getInitialArchonLocations(rc.getTeam().opponent());
-                }
             	switch (myType)
             	{
             	case GARDENER:
@@ -120,31 +108,11 @@ public strictfp class RobotPlayer {
             		break;
             	}
             	
-        		if (freeRange)
-        		{
-        			if (retargetCount < theirSpawns.length)
-        			{
-        				currentTarget = theirSpawns[retargetCount];
-        			}
-        			else if (round % 40 == 0)
-        			{
-        				currentTarget = myLocation.add(randomDirection(), 100);
-        			}
-        		}
-        		else
-        		{
+            	if (isScout){
             		if (currentTarget == null || round % 30 == 0)
             		{
             			currentTarget = myLocation.add(randomDirection(), 100);
-            		}        			
-        		}
-        		
-        		if (freeRange)
-        		{
-        			destination = currentTarget;
-        		}
-            	
-            	if (isScout){
+            		}
             		
             		float minDist = 99999999;
             		closestTree = null;
@@ -390,7 +358,7 @@ public strictfp class RobotPlayer {
     	
     	if (isGardener)
     	{
-    		if (lumberjacks < soldiers / 3 && rand() < 10 && rc.senseNearbyTrees(-1, Team.NEUTRAL).length > 0)
+    		if (lumberjacks < soldiers / 3 && lumberjacks <3 && rand() < 10)
     		{
     			attemptBuild(10, RobotType.LUMBERJACK);
     		}
@@ -448,11 +416,7 @@ public strictfp class RobotPlayer {
     	{
     		if (!bruteDefence)
     		{
-	    		float d = loc.distanceTo(destination);
-	    		if (!freeRange)
-	    		{
-	    			d -= controlRadius;
-	    		}
+	    		float d = loc.distanceTo(destination) - controlRadius;
 	    		d *= d;
 	    		ret += 1000 * d;
 	    		if (isSoldier && round - helpRound <= 1)
@@ -495,7 +459,7 @@ public strictfp class RobotPlayer {
 				float ideal = getIdealDistance(info.getType());
 				if (ideal < 0)
 					continue;
-				if (isSoldier && bruteDefence)
+				if (isSoldier)
 					ideal = 0;
 				if (isScout)
 					ideal = 6;
@@ -550,7 +514,7 @@ public strictfp class RobotPlayer {
     			{
     				ret += 1000 * 20 * damage * damage * info.location.distanceTo(loc);
     			}
-    			if (failedTreeBuild)
+    			if (gardeners == 1 && failedTreeBuild)
     			{
     				ret -= 20000 * loc.distanceTo(info.location);
     			}
@@ -693,23 +657,17 @@ public strictfp class RobotPlayer {
     
     public static float getIdealDistanceMultiplier(RobotType t)
     {
-    	float mul;
-    	if (freeRange)
-    		mul = 10;
-    	else
-    		mul = 1;
     	switch (t) {
     	case LUMBERJACK:
-    		return mul * 1000;
+    		return 1000;
     	case GARDENER:
-    		return mul * 500;
+    		return 500;
     	case ARCHON:
-    		return mul * 200;
+    		return 200;
     	case SOLDIER:
-    	case TANK:
-    		return mul * 5000;
+    		return 5000;
     	case SCOUT:
-    		return mul * 3000;
+    		return 3000;
     	default:
     		return 0;
     	}
@@ -730,7 +688,6 @@ public strictfp class RobotPlayer {
     	case ARCHON:
     		return 3.1f;
     	case SOLDIER:
-    	case TANK:
     		return 5;
     	case SCOUT:
     		return 2.1f;
