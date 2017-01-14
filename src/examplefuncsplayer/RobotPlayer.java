@@ -499,7 +499,6 @@ public strictfp class RobotPlayer {
 	    			rc.setIndicatorDot(myLocation, 0, 255, 0);
 	    			attemptBuild(10, RobotType.ARCHON); // plant a tree
 				}
-				System.out.println("Closer " + closer + ", farther " + farther);
     		}
     		if (aggro && rc.getTeamBullets() > 300)
     		{
