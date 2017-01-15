@@ -389,9 +389,13 @@ public strictfp class RobotPlayer {
 					}
 				}
 			}
-			else if (neutralTrees.length >= 1)
+			else if (neutralTrees.length >= 1 && (lumberjacks == 0 || soldiers > 0))
 			{
 				attemptBuild(10, RobotType.LUMBERJACK);
+			}
+			else if (soldiers == 0)
+			{
+				attemptBuild(10, RobotType.SOLDIER);
 			}
 			else if (gardeners == 1)
 			{
