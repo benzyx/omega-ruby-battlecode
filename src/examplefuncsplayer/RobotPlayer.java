@@ -80,6 +80,7 @@ public strictfp class RobotPlayer {
         numberOfChannel = myNumberOfChannel();
         myStride = myType.strideRadius;
         myRadius = myType.bodyRadius;
+        myLocation = rc.getLocation();
         isScout = myType == RobotType.SCOUT;
         isArchon = myType == RobotType.ARCHON;
         isGardener = myType == RobotType.GARDENER;
@@ -99,6 +100,7 @@ public strictfp class RobotPlayer {
         	freeRange = true;
         }
     	theirSpawns = rc.getInitialArchonLocations(rc.getTeam().opponent());
+    	sortByDistanceFromMe(theirSpawns);
         if (myType == RobotType.ARCHON)
         {
         	if (myID == 0)
@@ -338,7 +340,28 @@ public strictfp class RobotPlayer {
         }
 	}
     
-    public static void archonSpecificLogic() throws GameActionException
+    private static void sortByDistanceFromMe(MapLocation[] pts)
+    {
+    	for (int i = 0; i < pts.length; i++)
+    	{
+    		int idx = -1;
+    		float minDist = 99999999;
+    		for (int j = i; j < pts.length; j++)
+    		{
+    			float d = pts[j].distanceTo(myLocation);
+    			if (d < minDist)
+    			{
+    				minDist = d;
+    				idx = j;
+    			}
+    		}
+    		MapLocation swp = pts[i];
+    		pts[i] = pts[idx];
+    		pts[idx] = swp;
+    	}
+	}
+
+	public static void archonSpecificLogic() throws GameActionException
     {
     	getMacroStats();
     	macro();
@@ -605,12 +628,7 @@ public strictfp class RobotPlayer {
     		}
     	}
     	
-    	if (isArchon)
-    	{
-    		ret -= 2000 * loc.distanceTo(theirSpawns[0]);
-    	}
-    	
-    	if (isSoldier || isLumberjack || isArchon)
+    	if (isSoldier || isLumberjack)
     	{
     		if (!bruteDefence)
     		{
