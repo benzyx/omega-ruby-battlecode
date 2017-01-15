@@ -618,12 +618,12 @@ public strictfp class RobotPlayer {
     	}
     	else
     	{
-    		int i = (round + repellers.length - 1) % repellers.length;
-			if (repelWeight[i] > 0)
-			{
-				float d = loc.distanceTo(repellers[i]);
-				ret -= Math.sqrt(d) * repelWeight[i];
-			}
+//    		int i = (round + repellers.length - 1) % repellers.length;
+//			if (repelWeight[i] > 0)
+//			{
+//				float d = loc.distanceTo(repellers[i]);
+//				ret -= Math.sqrt(d) * repelWeight[i];
+//			}
     	}
     	
     	if (!threatened && !failedTreeBuild)
