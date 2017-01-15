@@ -1136,6 +1136,7 @@ public strictfp class RobotPlayer {
     		case LUMBERJACK:
     		case SOLDIER:
     		case TANK:
+    		case SCOUT:
     			threatened = true;
     			break loop;
     		default:
