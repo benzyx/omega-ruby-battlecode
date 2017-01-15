@@ -1,4 +1,4 @@
-package examplefuncsplayer;
+package testholder;
 import battlecode.common.*;
 
 public strictfp class RobotPlayer {
@@ -530,7 +530,7 @@ public strictfp class RobotPlayer {
     	
     	if (isGardener)
     	{
-    		if (soldiers >= 2 && rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5))
+    		if (soldiers >= 2 && rc.getTeamBullets() >= 50 && trees < 5 * gardeners)
     		{
     			rc.setIndicatorDot(myLocation, 0, 255, 0);
     			attemptBuild(10, RobotType.ARCHON); // plant a tree
