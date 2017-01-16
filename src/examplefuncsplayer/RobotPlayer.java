@@ -64,6 +64,7 @@ public strictfp class RobotPlayer {
     static int hexLen;
     static boolean roam; // for gardeners
     static MapLocation reflection;
+    static boolean friendlyFireSpot;
     
     static int retHelper1, retHelper2;
     
@@ -284,6 +285,7 @@ public strictfp class RobotPlayer {
             	}
             	else if (isSoldier || isTank)
             	{
+            		friendlyFireSpot = false;
 	            	long bestVal = 0;
 	            	Direction dir = null;
 	            	RobotType enemyType = null;
@@ -313,14 +315,9 @@ public strictfp class RobotPlayer {
 	            			}
 	            		}
 	            	}
-	            	if (dir != null && rc.canFirePentadShot() && enemyType != RobotType.ARCHON && enemyDistance < 4.2 )
-	            	{
-	            		rc.firePentadShot(dir);
-	            	}
-	            	else if (rc.canFireSingleShot() && dir != null)
-	            	{
-	            		rc.fireSingleShot(dir);
-	            	}
+	            	smartShot(dir, enemyType, enemyDistance);
+	            	// pink line showing who i wanna shoot
+	            	rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
             	}
             	
             	onRoundEnd();
@@ -328,7 +325,7 @@ public strictfp class RobotPlayer {
             	if (round != rc.getRoundNum() || Clock.getBytecodesLeft() < 20)
             	{
             		System.out.println("TLE");
-            		rc.setIndicatorDot(rc.getLocation(), 0, 0, 0);
+            		rc.setIndicatorLine(myLocation, theirSpawns[0], 255, 0, 0);
             	}
             	
         		Clock.yield();
@@ -341,6 +338,55 @@ public strictfp class RobotPlayer {
         	}
         }
 	}
+    public static void smartShot(Direction dir, RobotType enemyType, float enemyDistance) throws GameActionException{
+    	if (dir == null) return;
+    	
+    	for(RobotInfo info : nearbyFriends){
+    		if (info.getLocation().distanceTo(myLocation) < enemyDistance && willCollideWithTarget(myLocation, dir, info)){
+    			friendlyFireSpot = true;
+    			rc.setIndicatorDot(myLocation, 255, 255, 0);
+    			return; // friendly fire straight up
+    		}
+    		
+    		//if (Math.abs(myLocation.directionTo(info.getLocation()).degreesBetween(dir)) < 15) badTriad++;
+    		//if (Math.abs(myLocation.directionTo(info.getLocation()).degreesBetween(dir)) < 30) badPentad++;
+    	}
+    	if (rc.canFirePentadShot() && enemyDistance < 4.2)
+    	{
+    		rc.firePentadShot(dir);
+    	}
+    	else if (rc.canFireTriadShot() && enemyDistance < 4.8)
+    	{
+    		rc.fireTriadShot(dir);
+    	}
+    	else if (rc.canFireSingleShot() && (!isScout || enemyType == RobotType.GARDENER))
+    	{
+    		rc.fireSingleShot(dir);
+    	}
+    }
+    
+    static boolean willCollideWithTarget(MapLocation origin, Direction dir, RobotInfo target) {
+        MapLocation loc = target.getLocation();
+        
+        // Calculate bullet relations to this robot
+        Direction directionToRobot = origin.directionTo(loc);
+        float distToRobot = origin.distanceTo(loc);
+        float theta = dir.radiansBetween(directionToRobot);
+
+        // If theta > 90 degrees, then the bullet is traveling away from us and we can break early
+        if (Math.abs(theta) > 1.57079633) {
+            return false;
+        }
+
+        // distToRobot is our hypotenuse, theta is our angle, and we want to know this length of the opposite leg.
+        // This is the distance of a line that goes from myLocation and intersects perpendicularly with propagationDirection.
+        // This corresponds to the smallest radius circle centered at our location that would intersect with the
+        // line that is the path of the bullet.
+        float perpendicularDist = (float) Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
+
+        
+        return (perpendicularDist <= target.getType().bodyRadius);
+    }
     
     private static void sortByDistanceFromMe(MapLocation[] pts)
     {
@@ -671,7 +717,9 @@ public strictfp class RobotPlayer {
     	{
 	    	ret += 1000 * loc.distanceTo(destination);
     	}
-    	
+    	if (friendlyFireSpot){
+    		ret -= 3000 * loc.distanceTo(myLocation);
+    	}
     	if (bruteDefence)
     	{
     		ret += 500 * loc.distanceTo(myLocation);
@@ -941,6 +989,8 @@ public strictfp class RobotPlayer {
     
     public static float getIdealDistance(RobotType t)
     {
+    	if (isLumberjack) return 0;
+    	
     	switch (t) {
     	case LUMBERJACK:
     		return 5; // 1.5 (lumberjack stride) + 1 radius (them) + 1 radius (us) + 1 (lumberjack attack range) + 0.5 (safety first kids)
@@ -999,6 +1049,9 @@ public strictfp class RobotPlayer {
     	if (isLumberjack)
     	{
     		after = 3000;
+    	}
+    	else if (isSoldier || isTank){
+    		after = 400 + nearbyFriends.length*106;
     	}
     	else
     	{
