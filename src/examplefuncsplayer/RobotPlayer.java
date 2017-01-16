@@ -51,7 +51,8 @@ public strictfp class RobotPlayer {
     static MapLocation helpLocation;
     static int helpRound;
     static int oldGardenerLocChannel, newGardenerLocChannel;
-    static MapLocation[] gardenerLocs = new MapLocation[0];
+    static MapLocation[] gardenerLocs = new MapLocation[30];
+    static int gardenerLocsLen = 0;
     static boolean bruteDefence; // disable complicated dodging when defending a gardener
     static boolean freeRange;
     static MapLocation[] theirSpawns;
@@ -453,8 +454,9 @@ public strictfp class RobotPlayer {
     {
     	float d = 1e8f;
     	MapLocation pos = null;
-    	for (MapLocation oth : gardenerLocs)
+    	for (int i = 0; i < gardenerLocsLen; i++)
     	{
+    		MapLocation oth = gardenerLocs[i];
     		float td = oth.distanceTo(myLocation);
     		if (td > 2)
     		{
@@ -711,8 +713,9 @@ public strictfp class RobotPlayer {
     	{
     		long count = 0;
     		long tot = 0;
-    		for (MapLocation oth : gardenerLocs)
+    		for (int i = 0; i < gardenerLocsLen; i++)
     		{
+    			MapLocation oth = gardenerLocs[i];
     			if (oth.distanceTo(myLocation) < 2)
     			{
     				continue;
@@ -1130,11 +1133,24 @@ public strictfp class RobotPlayer {
 
     	if (isGardener)
     	{
-    		int len = rc.readBroadcast(oldGardenerLocChannel);
-    		gardenerLocs = new MapLocation[len];
-    		for (int i = 0; i < len; i++)
+    		gardenerLocsLen = rc.readBroadcast(oldGardenerLocChannel);
+    		if (gardenerLocsLen <= 10)
     		{
-    			gardenerLocs[i] = readPoint(oldGardenerLocChannel + 1 + i * 2);
+	    		for (int i = 0; i < gardenerLocsLen; i++)
+	    		{
+	    			gardenerLocs[i] = readPoint(oldGardenerLocChannel + 1 + i * 2);
+	    		}
+    		}
+    		else
+    		{
+    			gardenerLocsLen = 0;
+    			for (RobotInfo info : nearbyFriends)
+    			{
+    				if (info.getType() == RobotType.GARDENER)
+    				{
+    					gardenerLocs[gardenerLocsLen++] = info.getLocation();
+    				}
+    			}
     		}
     		int clen = rc.readBroadcast(newGardenerLocChannel);
     		writePoint(newGardenerLocChannel + 1 + clen * 2, myLocation);
