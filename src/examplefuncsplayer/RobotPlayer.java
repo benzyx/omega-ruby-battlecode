@@ -662,6 +662,10 @@ public strictfp class RobotPlayer {
     	{
     		ret += 1000 * loc.distanceTo(currentTarget);
     	}
+    	else if (isArchon && round < 40)
+    	{
+    		ret += 1000 * loc.distanceTo(destination);
+    	}
     	else
     	{
 	    	ret += 1000 * loc.distanceTo(destination);
@@ -787,7 +791,7 @@ public strictfp class RobotPlayer {
     		}    		
     	}
     	
-    	if (!bruteDefence)
+    	if (!bruteDefence && !isGardener && !isArchon)
     	{
 	    	for (int i = 0; i < importantBulletIndex; i++)
 	    	{
