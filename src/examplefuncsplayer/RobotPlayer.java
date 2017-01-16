@@ -849,14 +849,7 @@ public strictfp class RobotPlayer {
 	    		float d = info.getLocation().distanceTo(loc) - myRadius - info.getType().bodyRadius;
 	    		if (d < range)
 	    		{
-	    			if (bruteDefence && info.getType() == RobotType.GARDENER)
-	    			{
-		    			ret -= 1000 * (1 / (0.01f + d / range));
-	    			}
-	    			else
-	    			{
-	    				ret += 1000 * (1 / (0.01f + d / range));
-	    			}
+    				ret += 1000 * (1 / (0.01f + d / range));
 	    		}
 	    	}
     	}
