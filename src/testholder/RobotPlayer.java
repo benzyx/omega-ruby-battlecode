@@ -1,4 +1,4 @@
-package examplefuncsplayer;
+package testholder;
 import battlecode.common.*;
 
 public strictfp class RobotPlayer {
@@ -51,8 +51,7 @@ public strictfp class RobotPlayer {
     static MapLocation helpLocation;
     static int helpRound;
     static int oldGardenerLocChannel, newGardenerLocChannel;
-    static MapLocation[] gardenerLocs = new MapLocation[30];
-    static int gardenerLocsLen = 0;
+    static MapLocation[] gardenerLocs = new MapLocation[0];
     static boolean bruteDefence; // disable complicated dodging when defending a gardener
     static boolean freeRange;
     static MapLocation[] theirSpawns;
@@ -63,7 +62,6 @@ public strictfp class RobotPlayer {
     static MapLocation[] hexes = new MapLocation[15];
     static int hexLen;
     static boolean roam; // for gardeners
-    static MapLocation reflection;
     
     static int retHelper1, retHelper2;
     
@@ -82,7 +80,6 @@ public strictfp class RobotPlayer {
         numberOfChannel = myNumberOfChannel();
         myStride = myType.strideRadius;
         myRadius = myType.bodyRadius;
-        myLocation = rc.getLocation();
         isScout = myType == RobotType.SCOUT;
         isArchon = myType == RobotType.ARCHON;
         isGardener = myType == RobotType.GARDENER;
@@ -102,7 +99,6 @@ public strictfp class RobotPlayer {
         	freeRange = true;
         }
     	theirSpawns = rc.getInitialArchonLocations(rc.getTeam().opponent());
-    	sortByDistanceFromMe(theirSpawns);
         if (myType == RobotType.ARCHON)
         {
         	if (myID == 0)
@@ -183,7 +179,7 @@ public strictfp class RobotPlayer {
         		
         		if (freeRange)
         		{
-        			debug_line(myLocation, currentTarget, 100, 0, 100);
+        			rc.setIndicatorLine(myLocation, currentTarget, 100, 0, 100);
         		}
             	
             	if (isScout){
@@ -342,28 +338,7 @@ public strictfp class RobotPlayer {
         }
 	}
     
-    private static void sortByDistanceFromMe(MapLocation[] pts)
-    {
-    	for (int i = 0; i < pts.length; i++)
-    	{
-    		int idx = -1;
-    		float minDist = 99999999;
-    		for (int j = i; j < pts.length; j++)
-    		{
-    			float d = pts[j].distanceTo(myLocation);
-    			if (d < minDist)
-    			{
-    				minDist = d;
-    				idx = j;
-    			}
-    		}
-    		MapLocation swp = pts[i];
-    		pts[i] = pts[idx];
-    		pts[idx] = swp;
-    	}
-	}
-
-	public static void archonSpecificLogic() throws GameActionException
+    public static void archonSpecificLogic() throws GameActionException
     {
     	getMacroStats();
     	macro();
@@ -455,9 +430,8 @@ public strictfp class RobotPlayer {
     {
     	float d = 1e8f;
     	MapLocation pos = null;
-    	for (int i = 0; i < gardenerLocsLen; i++)
+    	for (MapLocation oth : gardenerLocs)
     	{
-    		MapLocation oth = gardenerLocs[i];
     		float td = oth.distanceTo(myLocation);
     		if (td > 2)
     		{
@@ -556,7 +530,7 @@ public strictfp class RobotPlayer {
     	
     	if (isGardener)
     	{
-    		if (soldiers >= 2 && rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5))
+    		if (soldiers >= 2 && rc.getTeamBullets() >= 50 && trees < 5 * gardeners)
     		{
     			rc.setIndicatorDot(myLocation, 0, 255, 0);
     			attemptBuild(10, RobotType.ARCHON); // plant a tree
@@ -631,7 +605,12 @@ public strictfp class RobotPlayer {
     		}
     	}
     	
-    	if (isSoldier || isLumberjack)
+    	if (isArchon)
+    	{
+    		ret -= 2000 * loc.distanceTo(theirSpawns[0]);
+    	}
+    	
+    	if (isSoldier || isLumberjack || isArchon)
     	{
     		if (!bruteDefence)
     		{
@@ -662,10 +641,6 @@ public strictfp class RobotPlayer {
     	else if (isScout)
     	{
     		ret += 1000 * loc.distanceTo(currentTarget);
-    	}
-    	else if (isArchon && round < 40)
-    	{
-    		ret += 1000 * loc.distanceTo(destination);
     	}
     	else
     	{
@@ -718,9 +693,8 @@ public strictfp class RobotPlayer {
     	{
     		long count = 0;
     		long tot = 0;
-    		for (int i = 0; i < gardenerLocsLen; i++)
+    		for (MapLocation oth : gardenerLocs)
     		{
-    			MapLocation oth = gardenerLocs[i];
     			if (oth.distanceTo(myLocation) < 2)
     			{
     				continue;
@@ -792,7 +766,7 @@ public strictfp class RobotPlayer {
     		}    		
     	}
     	
-    	if (!bruteDefence && !isGardener && !isArchon)
+    	if (!bruteDefence)
     	{
 	    	for (int i = 0; i < importantBulletIndex; i++)
 	    	{
@@ -1138,24 +1112,11 @@ public strictfp class RobotPlayer {
 
     	if (isGardener)
     	{
-    		gardenerLocsLen = rc.readBroadcast(oldGardenerLocChannel);
-    		if (gardenerLocsLen <= 10)
+    		int len = rc.readBroadcast(oldGardenerLocChannel);
+    		gardenerLocs = new MapLocation[len];
+    		for (int i = 0; i < len; i++)
     		{
-	    		for (int i = 0; i < gardenerLocsLen; i++)
-	    		{
-	    			gardenerLocs[i] = readPoint(oldGardenerLocChannel + 1 + i * 2);
-	    		}
-    		}
-    		else
-    		{
-    			gardenerLocsLen = 0;
-    			for (RobotInfo info : nearbyFriends)
-    			{
-    				if (info.getType() == RobotType.GARDENER)
-    				{
-    					gardenerLocs[gardenerLocsLen++] = info.getLocation();
-    				}
-    			}
+    			gardenerLocs[i] = readPoint(oldGardenerLocChannel + 1 + i * 2);
     		}
     		int clen = rc.readBroadcast(newGardenerLocChannel);
     		writePoint(newGardenerLocChannel + 1 + clen * 2, myLocation);
@@ -1208,63 +1169,6 @@ public strictfp class RobotPlayer {
     	{
     		initHexes();
     	}
-    	else if (isScout)
-    	{
-    		findReflection();
-    	}
-    }
-    
-    static void findReflection() throws GameActionException
-    {
-    	reflection = null;
-    	RobotInfo gardener = null;
-    	RobotInfo shooter = null;
-    	for (int i = nearbyEnemies.length - 1; i >= 0; i--)
-    	{
-    		RobotInfo enemy = nearbyEnemies[i];
-    		switch (enemy.getType())
-    		{
-    		case GARDENER:
-    			gardener = enemy;
-    			break;
-    		case SCOUT:
-    		case TANK:
-    		case SOLDIER:
-    		case LUMBERJACK:
-    			if (shooter == null)
-    			{
-    				shooter = enemy;
-    			}
-    			else
-    			{
-    				return;
-    			}
-    		}
-    	}
-    	if (shooter != null && gardener != null)
-    	{
-	    	MapLocation a = shooter.getLocation();
-	    	MapLocation b = gardener.getLocation();
-	    	MapLocation c = b.add(a.directionTo(b), a.distanceTo(b));
-	    	if (canGoTo(c))
-	    	{
-	    		reflection = c;
-	    		debug_line(a, c, 255, 255, 0);
-	    	}
-    	}
-    }
-    
-    static void debug_line(MapLocation p1, MapLocation p2, int r, int g, int b) throws GameActionException
-    {
-    	rc.setIndicatorLine(p1, p2, r, g, b);
-    }
-    
-    static boolean canGoTo(MapLocation loc) throws GameActionException
-    {
-    	return
-    			rc.canSenseAllOfCircle(loc, myRadius) &&
-    			!rc.isCircleOccupiedExceptByThisRobot(loc, myRadius) &&
-    			rc.onTheMap(loc, myRadius);
     }
     
     public static final float hexSize = 4.2f;
