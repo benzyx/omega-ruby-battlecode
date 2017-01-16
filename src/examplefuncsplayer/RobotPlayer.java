@@ -63,6 +63,7 @@ public strictfp class RobotPlayer {
     static MapLocation[] hexes = new MapLocation[15];
     static int hexLen;
     static boolean roam; // for gardeners
+    static MapLocation reflection;
     
     static int retHelper1, retHelper2;
     
@@ -182,7 +183,7 @@ public strictfp class RobotPlayer {
         		
         		if (freeRange)
         		{
-        			rc.setIndicatorLine(myLocation, currentTarget, 100, 0, 100);
+        			debug_line(myLocation, currentTarget, 100, 0, 100);
         		}
             	
             	if (isScout){
@@ -1207,6 +1208,63 @@ public strictfp class RobotPlayer {
     	{
     		initHexes();
     	}
+    	else if (isScout)
+    	{
+    		findReflection();
+    	}
+    }
+    
+    static void findReflection() throws GameActionException
+    {
+    	reflection = null;
+    	RobotInfo gardener = null;
+    	RobotInfo shooter = null;
+    	for (int i = nearbyEnemies.length - 1; i >= 0; i--)
+    	{
+    		RobotInfo enemy = nearbyEnemies[i];
+    		switch (enemy.getType())
+    		{
+    		case GARDENER:
+    			gardener = enemy;
+    			break;
+    		case SCOUT:
+    		case TANK:
+    		case SOLDIER:
+    		case LUMBERJACK:
+    			if (shooter == null)
+    			{
+    				shooter = enemy;
+    			}
+    			else
+    			{
+    				return;
+    			}
+    		}
+    	}
+    	if (shooter != null && gardener != null)
+    	{
+	    	MapLocation a = shooter.getLocation();
+	    	MapLocation b = gardener.getLocation();
+	    	MapLocation c = b.add(a.directionTo(b), a.distanceTo(b));
+	    	if (canGoTo(c))
+	    	{
+	    		reflection = c;
+	    		debug_line(a, c, 255, 255, 0);
+	    	}
+    	}
+    }
+    
+    static void debug_line(MapLocation p1, MapLocation p2, int r, int g, int b) throws GameActionException
+    {
+    	rc.setIndicatorLine(p1, p2, r, g, b);
+    }
+    
+    static boolean canGoTo(MapLocation loc) throws GameActionException
+    {
+    	return
+    			rc.canSenseAllOfCircle(loc, myRadius) &&
+    			!rc.isCircleOccupiedExceptByThisRobot(loc, myRadius) &&
+    			rc.onTheMap(loc, myRadius);
     }
     
     public static final float hexSize = 4.2f;
