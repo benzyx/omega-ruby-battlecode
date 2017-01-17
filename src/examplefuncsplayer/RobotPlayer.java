@@ -345,7 +345,6 @@ public strictfp class RobotPlayer {
 								isEnemyTree = true;
 							}
 						}
-						System.out.println(onBegin - Clock.getBytecodesLeft());
 
 						if (dist < 3 && info.getType() == RobotType.LUMBERJACK) 
 						{
@@ -482,7 +481,6 @@ public strictfp class RobotPlayer {
 	// When the type parameter is ARCHON, we build a TREE instead.
 	public static boolean attemptBuild(int iter, RobotType type) throws GameActionException
 	{
-		System.out.println("Attempt build " + type);
 		if (type == RobotType.ARCHON){
 			if (rc.getTeamBullets() < 50 || !rc.hasTreeBuildRequirements())
 			{
@@ -644,11 +642,16 @@ public strictfp class RobotPlayer {
 			rc.setIndicatorLine(myLocation, bestTree.location, 0, 0, 255);
 		}
 	}
+	
+	static void debug_printMacroStats()
+	{
+		System.out.println(gardeners + "/" + soldiers + "/" + trees);
+	}
 
 	// What to build after our build order is done
 	public static void macro() throws GameActionException
 	{
-		System.out.println(gardeners + "/" + soldiers + "/" + trees);
+		debug_printMacroStats();
 
 		boolean wantGardener = false;
 		if (gardeners < trees / 5 + 1 || (rc.getTeamBullets() > 350 && gardeners < trees / 2)) // indicates some kind of blockage
@@ -1225,12 +1228,18 @@ public strictfp class RobotPlayer {
 			int taken = t1 - Clock.getBytecodesLeft();
 			longest = Math.max(longest, taken);
 		}
-		System.out.println(iterations + " iterations: " + bestVal + " (" + nearbyBullets.length + "/" + importantBulletIndex + ": " + longest + " bytecodes)");
+//		System.out.println(iterations + " iterations: " + bestVal + " (" + nearbyBullets.length + "/" + importantBulletIndex + ": " + longest + " bytecodes)");
+		debug_printAfterMovementLoop(iterations, longest);
 		if (best != null)
 			opti = best;
 		else
 			opti = myLocation;
 
+	}
+	
+	static void debug_printAfterMovementLoop(int iterations, int longest)
+	{
+		System.out.println(iterations + " iterations; the longest one cost " + longest);
 	}
 
 	public static void onRoundEnd() throws GameActionException
@@ -1484,7 +1493,6 @@ public strictfp class RobotPlayer {
 			{
 				if (info.getLocation().distanceTo(loc) < info.getRadius() + 1)
 				{
-					System.out.println(info.getLocation().distanceTo(loc) + " " + info.getRadius() + 1);
 					return false;
 				}
 			}
