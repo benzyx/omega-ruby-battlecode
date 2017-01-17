@@ -191,7 +191,14 @@ public strictfp class RobotPlayer {
 	            	for (RobotInfo info : nearbyEnemies)
 	            	{
 	            		float dist = rc.getLocation().distanceTo(info.getLocation());
-	            		if (dist < 6)
+	            		if (dist < 3 && info.getType() == RobotType.LUMBERJACK) 
+	            		{
+	            			dir = rc.getLocation().directionTo(info.getLocation());
+	            			enemyType = info.getType();
+	            			enemyDistance = dist;
+	            			break;
+	            		} 
+	            		else if (dist < 6)
 	            		{
 	            			long val = (long) getIdealDistanceMultiplier(info.getType());
 	            			if (dir == null || val > bestVal)
