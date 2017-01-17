@@ -321,15 +321,20 @@ public strictfp class RobotPlayer {
 						boolean isNeutralTree = false;
 						boolean isEnemyTree = false;
 
-						MapLocation currLocation = myLocation.add(currDirection, 1);
-						for (int i = 0; i < (dist - 1) / 1.5; i++, currLocation = currLocation.add(currDirection, 1.5f)) 
+						MapLocation currLocation = myLocation.add(currDirection, 1.001f);
+						int limit = (int) ((dist - 1) / 1.5);
+						for (int i = 0; i < limit; i++, currLocation = currLocation.add(currDirection, 1.5f)) 
 						{
 							TreeInfo ti = rc.senseTreeAtLocation(currLocation);
-							if (ti != null && ti.team == Team.NEUTRAL)
+							if (ti == null)
+							{
+								continue;
+							}
+							if (ti.team == myTeam || ti.team == Team.NEUTRAL)
 							{
 								isNeutralTree = true;
 							}
-							else if (ti != null && ti.team != myTeam)
+							else
 							{
 								isEnemyTree = true;
 							}
