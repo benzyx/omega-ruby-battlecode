@@ -74,6 +74,7 @@ public strictfp class RobotPlayer {
 	static boolean friendlyFireSpot;
 	static boolean hasBeenThreatened;
 	static int[] dominationTable;
+	static int spawnRound;
 
 	static int retHelper1, retHelper2;
 
@@ -200,10 +201,10 @@ public strictfp class RobotPlayer {
 					}        			
 				}
 
-				if (freeRange)
-				{
-					debug_line(myLocation, currentTarget, 100, 0, 100);
-				}
+//				if (freeRange)
+//				{
+//					debug_line(myLocation, currentTarget, 100, 0, 100);
+//				}
 
 				if (isScout){
 
@@ -1403,7 +1404,7 @@ public strictfp class RobotPlayer {
 		}
 		else if (isScout)
 		{
-			findReflection();
+			findEasyTargets();
 			trees = rc.getTreeCount();
 		}
 		if (rc.getRoundNum() + 2 >= rc.getRoundLimit() || rc.getTeamVictoryPoints() + rc.getTeamBullets() / 10 > 1000)
@@ -1459,7 +1460,7 @@ public strictfp class RobotPlayer {
 	{
 		for (RobotInfo info : nearbyEnemies)
 		{
-			if (dominates(info.ID))
+			if (dominates(info))
 			{
 				rc.setIndicatorLine(myLocation, info.getLocation(), 100, 0, 0);
 				rc.setIndicatorDot(info.getLocation(), 100, 0, 0);
@@ -1489,9 +1490,38 @@ public strictfp class RobotPlayer {
 			}
 		}
 	}
-	
-	static boolean dominates(int id)
+	static void insertToLocalTable(int x)
 	{
+		int p = x;
+		for (;;)
+		{
+			p %= HASH_TABLE_LEN;
+			int at = dominationTable[p];
+			if (at == 0)
+			{
+				dominationTable[p] = x;
+				return;
+			}
+			else if (at == x)
+			{
+				return;
+			}
+			else
+			{
+				++p;
+			}
+		}
+	}
+	
+	static boolean dominates(RobotInfo info)
+	{
+		int theirLatestRound = round - (int) (theirSpawns[0].distanceTo(info.getLocation()) / info.type.strideRadius);
+		if (theirLatestRound < spawnRound)
+		{
+			insertToLocalTable(info.ID);
+			return true;
+		}
+		int id = info.ID;
 		int x = id;
 		for (;;)
 		{
@@ -1532,7 +1562,7 @@ public strictfp class RobotPlayer {
 		}
 		return true;
 	}
-	static void findReflection() throws GameActionException
+	static void findEasyTargets() throws GameActionException
 	{
 		reflection = null;
 		RobotInfo gardener = null;
