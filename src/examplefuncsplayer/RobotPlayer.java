@@ -411,11 +411,15 @@ public strictfp class RobotPlayer {
 			//if (Math.abs(myLocation.directionTo(info.getLocation()).degreesBetween(dir)) < 15) badTriad++;
 			//if (Math.abs(myLocation.directionTo(info.getLocation()).degreesBetween(dir)) < 30) badPentad++;
 		}
-		if (rc.canFirePentadShot() && enemyDistance < 4.2)
+		if (enemyType == RobotType.SCOUT && enemyDistance > 3.1f)
+		{
+			return;
+		}
+		if (rc.canFirePentadShot() && enemyDistance < 4.2f)
 		{
 			rc.firePentadShot(dir);
 		}
-		else if (rc.canFireTriadShot() && enemyDistance < 4.8)
+		else if (rc.canFireTriadShot() && enemyDistance < 4.8f)
 		{
 			rc.fireTriadShot(dir);
 		}
