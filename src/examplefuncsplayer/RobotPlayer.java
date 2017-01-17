@@ -543,7 +543,15 @@ public strictfp class RobotPlayer {
 			}
 			for (int i = 0; i < iter; i++)
 			{
-				Direction dir = randomDirection();
+				Direction dir;
+				if (i == 0)
+				{
+					dir = myLocation.directionTo(theirSpawns[0]);
+				}
+				else
+				{
+					dir = randomDirection();
+				}
 				if (rc.canBuildRobot(type, dir)){
 					rc.buildRobot(type, dir);
 					return true;
