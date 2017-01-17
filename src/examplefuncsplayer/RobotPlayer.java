@@ -1395,7 +1395,6 @@ public strictfp class RobotPlayer {
 	{
 		for (int i = 0; i < history.length; i++)
 		{
-			System.out.println(history[i] + " " + myLocation);
 			if (history[i] == null)
 			{
 				return false;
