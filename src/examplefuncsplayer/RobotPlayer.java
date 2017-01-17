@@ -1262,7 +1262,7 @@ public strictfp class RobotPlayer {
 		bottomBound = rc.readBroadcast(CHANNEL_MAP_BOTTOM);
 		topBound = rc.readBroadcast(CHANNEL_MAP_TOP);
 		myLocation = rc.getLocation();
-		history[round  % history.length] = myLocation;
+		history[round % history.length] = myLocation;
 		controlRadius = rc.readBroadcast(CHANNEL_CONTROL_RADIUS) / 1000f;
 		helpLocation = readPoint(CHANNEL_CALL_FOR_HELP);
 		helpRound = rc.readBroadcast(CHANNEL_CALL_FOR_HELP_ROUND);
@@ -1344,17 +1344,17 @@ public strictfp class RobotPlayer {
 			}
 
 		bruteDefence = false;
-		if (isSoldier && threatened && rc.getHealth() > 10)
-		{
-			for (RobotInfo info : nearbyFriends)
-			{
-				if (info.getType() == RobotType.GARDENER)
-				{
-					bruteDefence = true;
-					break;
-				}
-			}
-		}
+//		if (isSoldier && threatened && rc.getHealth() > 10)
+//		{
+//			for (RobotInfo info : nearbyFriends)
+//			{
+//				if (info.getType() == RobotType.GARDENER)
+//				{
+//					bruteDefence = true;
+//					break;
+//				}
+//			}
+//		}
 		if (aggro)
 		{
 			bruteDefence = false;
@@ -1395,11 +1395,12 @@ public strictfp class RobotPlayer {
 	{
 		for (int i = 0; i < history.length; i++)
 		{
+			System.out.println(history[i] + " " + myLocation);
 			if (history[i] == null)
 			{
 				return false;
 			}
-			if (history[i].distanceTo(myLocation) > 1)
+			if (history[i].distanceTo(myLocation) > 0.1f)
 			{
 				return false;
 			}
