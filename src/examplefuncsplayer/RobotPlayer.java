@@ -343,7 +343,11 @@ public strictfp class RobotPlayer {
 							break;
 						} 
 
-						if (dist < req && !isNeutralTree && (!isEnemyTree || info.getType() == RobotType.GARDENER))
+						if (
+								dist < req &&
+								!isNeutralTree &&
+								(!isEnemyTree ||
+									(info.getType() == RobotType.GARDENER && !isScout && trees >= 6)))
 						{
 							long val = (long) getIdealDistanceMultiplier(info.getType());
 							if (dir == null || val > bestVal)
