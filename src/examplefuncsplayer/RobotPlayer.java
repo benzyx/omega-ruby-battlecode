@@ -1428,13 +1428,18 @@ public strictfp class RobotPlayer {
 			}
 		}
 		debug_printTimeTaken("Hash table update", a);
-		if (isScout && dominationTable == null)
+		
+		if (isScout)
 		{
-			dominationTable = new int[HASH_TABLE_LEN];
-			for (int i = 0; i < HASH_TABLE_LEN; i++)
+			if (dominationTable == null)
 			{
-				dominationTable[i] = rc.readBroadcast(CHANNEL_HASH_TABLE + i);
+				dominationTable = new int[HASH_TABLE_LEN];
+				for (int i = 0; i < HASH_TABLE_LEN; i++)
+				{
+					dominationTable[i] = rc.readBroadcast(CHANNEL_HASH_TABLE + i);
+				}
 			}
+			debug_highlightDomination();
 		}
 		if (isArchon)
 		{
@@ -1450,6 +1455,17 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
+	static void debug_highlightDomination() throws GameActionException
+	{
+		for (RobotInfo info : nearbyEnemies)
+		{
+			if (dominates(info.ID))
+			{
+				rc.setIndicatorLine(myLocation, info.getLocation(), 100, 0, 0);
+				rc.setIndicatorDot(info.getLocation(), 100, 0, 0);
+			}
+		}
+	}
 	static void hashTableInsert(int x) throws GameActionException
 	{
 		int p = x;
@@ -1470,6 +1486,28 @@ public strictfp class RobotPlayer {
 			else
 			{
 				++p;
+			}
+		}
+	}
+	
+	static boolean dominates(int id)
+	{
+		int x = id;
+		for (;;)
+		{
+			x %= HASH_TABLE_LEN;
+			int at = dominationTable[x];
+			if (at == id)
+			{
+				return true;
+			}
+			else if (at == 0)
+			{
+				return false;
+			}
+			else
+			{
+				++x;
 			}
 		}
 	}
