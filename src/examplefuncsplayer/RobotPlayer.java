@@ -1465,7 +1465,7 @@ public strictfp class RobotPlayer {
 	}
 
 	public static final float hexSize = 4.2f;
-	public static final float rowSpacing = (float) Math.sqrt(3) / 1.5f * hexSize;
+	public static final float rowSpacing = (float) Math.sqrt(3) / 1.75f * hexSize;
 
 	static MapLocation hexToCartesian(int x, int y)
 	{
