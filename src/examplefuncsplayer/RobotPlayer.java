@@ -677,9 +677,11 @@ public strictfp class RobotPlayer {
     public static RobotType getBuildOrderNext(int index){
     	 RobotType[] buildOrder = 
     	{
+    			RobotType.SCOUT,
+    			RobotType.ARCHON,
+    			RobotType.SOLDIER,
      			RobotType.SCOUT,
      			RobotType.ARCHON,
-    			RobotType.SOLDIER,
     			null
     	};
     	return buildOrder[index];
@@ -719,6 +721,8 @@ public strictfp class RobotPlayer {
 			    		ret += 1000 * d;
 	    			}
 	    		}
+	    		// soldier could be kited by scout when gardener sees soldier but the soldier does not
+	    		// see the scout.
 	    		if (isSoldier && round - helpRound <= 1)
 	    		{
 	    			ret += 400000 * loc.distanceTo(helpLocation);
