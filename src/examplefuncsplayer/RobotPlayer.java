@@ -115,7 +115,7 @@ public strictfp class RobotPlayer {
         	if (myID == 0)
         	{
             	MapLocation them = theirSpawns[0];
-            	MapLocation us = rc.getLocation();
+            	MapLocation us = myLocation;
 //            	MapLocation rally = new MapLocation((us.x + us.x + them.x) / 3, (us.y + us.y + them.y) / 3);
 //            	MapLocation rally = us.add(us.directionTo(them), 12);
             	MapLocation rally = us;
@@ -203,9 +203,9 @@ public strictfp class RobotPlayer {
             		closestTree = null;
             		for (TreeInfo info : nearbyTrees)
             		{
-            			if(info.containedBullets > 0 && info.getLocation().distanceTo(rc.getLocation()) < minDist)
+            			if(info.containedBullets > 0 && info.getLocation().distanceTo(myLocation) < minDist)
             			{
-            				minDist = info.getLocation().distanceTo(rc.getLocation());
+            				minDist = info.getLocation().distanceTo(myLocation);
             				closestTree = info;
             			}
             		}
@@ -302,7 +302,7 @@ public strictfp class RobotPlayer {
 	            	float enemyDistance = 0;
 	            	for (RobotInfo info : nearbyEnemies)
 	            	{
-	            		float dist = rc.getLocation().distanceTo(info.getLocation());
+	            		float dist = myLocation.distanceTo(info.getLocation());
 	            		float req;
 	            		switch (info.getType())
 	            		{
@@ -319,7 +319,7 @@ public strictfp class RobotPlayer {
 	            			if (dir == null || val > bestVal)
 	            			{
 	            				bestVal = val;
-	            				dir = rc.getLocation().directionTo(info.getLocation());
+	            				dir = myLocation.directionTo(info.getLocation());
 	            				enemyType = info.getType();
 	            				enemyDistance = dist;
 	            			}
@@ -956,7 +956,7 @@ public strictfp class RobotPlayer {
             Direction propagationDirection = bullet.dir;
             MapLocation bulletLocation = bullet.location;
 
-            MapLocation loc = rc.getLocation();
+            MapLocation loc = myLocation;
             // Calculate bullet relations to this robot
             Direction directionToRobot = bulletLocation.directionTo(loc);
             float distToRobot = bulletLocation.distanceTo(loc);
@@ -1003,7 +1003,7 @@ public strictfp class RobotPlayer {
     			int idx = i;
     			for (int j = i+1; j < importantBulletIndex; j++)
     			{
-    				float d = nearbyBullets[j].getLocation().distanceTo(rc.getLocation()); 
+    				float d = nearbyBullets[j].getLocation().distanceTo(myLocation); 
     				if (d < best)
     				{
     					best = d;
@@ -1124,7 +1124,7 @@ public strictfp class RobotPlayer {
     		{
     			add = myStride * rand() / 360;
     		}
-			MapLocation cand = rc.getLocation().add(randomDirection(), add);
+			MapLocation cand = myLocation.add(randomDirection(), add);
 			if (iterations == 0)
 			{
 				if (reflection != null)
@@ -1140,7 +1140,7 @@ public strictfp class RobotPlayer {
 				}
 				else
 				{
-					cand = rc.getLocation();
+					cand = myLocation;
 				}
 			}
 			if (rc.canMove(cand))
@@ -1183,7 +1183,7 @@ public strictfp class RobotPlayer {
     	if (best != null)
     		opti = best;
     	else
-    		opti = rc.getLocation();
+    		opti = myLocation;
     	
     }
     
@@ -1204,7 +1204,7 @@ public strictfp class RobotPlayer {
     	int idx = round % repellers.length;
     	if (freeRange)
     	{
-	    	repellers[idx] = rc.getLocation();
+	    	repellers[idx] = myLocation;
 	    	repelWeight[idx] = 10000;
     	}
     	roam = false;
