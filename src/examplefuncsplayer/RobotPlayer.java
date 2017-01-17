@@ -41,6 +41,7 @@ public strictfp class RobotPlayer {
 	static TreeInfo closestTree = null;	// scouts use this to shake trees
 	static int numberOfChannel;
 	static RobotType myType;
+	static Team myTeam;
 	static boolean isScout, isArchon, isGardener, isSoldier, isTank, isLumberjack;
 	static float myStride;
 	static float myRadius;
@@ -108,7 +109,7 @@ public strictfp class RobotPlayer {
 		{
 			freeRange = true;
 		}
-		theirSpawns = rc.getInitialArchonLocations(rc.getTeam().opponent());
+		theirSpawns = rc.getInitialArchonLocations(myTeam.opponent());
 		sortByDistanceFromMe(theirSpawns);
 		if (myType == RobotType.ARCHON)
 		{
@@ -141,7 +142,7 @@ public strictfp class RobotPlayer {
 				destination = readPoint(RALLY_POINT);
 				if (freeRange && theirSpawns == null)
 				{
-					theirSpawns = rc.getInitialArchonLocations(rc.getTeam().opponent());
+					theirSpawns = rc.getInitialArchonLocations(myTeam.opponent());
 				}
 				switch (myType)
 				{
@@ -237,7 +238,7 @@ public strictfp class RobotPlayer {
 					closestTree = null;
 					//            		for (TreeInfo info : nearbyTrees)
 						//            		{
-						//            			if (info.getTeam() == rc.getTeam())
+						//            			if (info.getTeam() == myTeam)
 							//            			{
 							//            				continue;
 							//            			}
@@ -252,7 +253,7 @@ public strictfp class RobotPlayer {
 					minDist = 99999999;
 					for (TreeInfo info : nearbyTrees)
 					{
-						if (info.getTeam() == rc.getTeam())
+						if (info.getTeam() == myTeam)
 						{
 							continue;
 						}
@@ -264,8 +265,8 @@ public strictfp class RobotPlayer {
 						}
 					}
 
-					RobotInfo[] a = rc.senseNearbyRobots(3, rc.getTeam());
-					RobotInfo[] b = rc.senseNearbyRobots(3, rc.getTeam().opponent());
+					RobotInfo[] a = rc.senseNearbyRobots(3, myTeam);
+					RobotInfo[] b = rc.senseNearbyRobots(3, myTeam.opponent());
 					boolean wantStrike = a.length < b.length;
 					for (RobotInfo info : b)
 					{
@@ -313,16 +314,36 @@ public strictfp class RobotPlayer {
 							default:
 								req = 6;
 						}
+						
+						MapLocation currLocation = myLocation;
+						MapLocation enemyLocation = info.getLocation();
+						float dx = ((currLocation.x - enemyLocation.x) / dist);
+						float dy = ((currLocation.y - enemyLocation.y) / dist);
+						boolean isNeutralTree = false;
+						boolean isEnemyTree = false;
+						
+						for (float d = 1; d < dist; d += 1.5) 
+						{
+							TreeInfo ti = rc.senseTreeAtLocation(new MapLocation(currLocation.x + dx * d, currLocation.y + dy * d));
+							if (ti != null && ti.team == Team.NEUTRAL)
+							{
+								isNeutralTree = true;
+							}
+							else if (ti != null && ti.team != myTeam)
+							{
+								isEnemyTree = true;
+							}
+						}
 
 	            		if (dist < 3 && info.getType() == RobotType.LUMBERJACK) 
 	            		{
-	            			dir = myLocation.directionTo(info.getLocation());
+	            			dir = myLocation.directionTo(enemyLocation);
 	            			enemyType = info.getType();
 	            			enemyDistance = dist;
 	            			break;
 	            		} 
 	            		
-						if (dist < req)
+						if (dist < req && !isNeutralTree && (!isEnemyTree || info.getType() == RobotType.GARDENER))
 						{
 							long val = (long) getIdealDistanceMultiplier(info.getType());
 							if (dir == null || val > bestVal)
@@ -338,7 +359,7 @@ public strictfp class RobotPlayer {
 					if (!isScout || enemyType == RobotType.GARDENER || trees >= 4) {
 						smartShot(dir, enemyType, enemyDistance);
 					}
-
+					
 					// pink line showing who i wanna shoot
 					rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
 				}
@@ -588,7 +609,7 @@ public strictfp class RobotPlayer {
 		for (TreeInfo info : nearbyTrees)
 		{
 			if (rc.canWater(info.ID)){
-				if (info.health < lowestHP && info.team == rc.getTeam()){
+				if (info.health < lowestHP && info.team == myTeam){
 					lowestHP = info.health;
 					bestTree = info;
 				}
@@ -1214,12 +1235,13 @@ public strictfp class RobotPlayer {
 			repelWeight[idx] = 10000;
 		}
 		roam = false;
-		nearbyFriends = rc.senseNearbyRobots(100, rc.getTeam());
-		nearbyEnemies = rc.senseNearbyRobots(100, rc.getTeam().opponent());
+		myTeam = rc.getTeam();
+		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
+		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets();
 		if (isGardener || isArchon)
 		{
-			nearbyTrees = rc.senseNearbyTrees(-1, rc.getTeam());
+			nearbyTrees = rc.senseNearbyTrees(-1, myTeam);
 			neutralTrees = rc.senseNearbyTrees(-1, Team.NEUTRAL);
 			treeBuildTarget = null;
 		}
