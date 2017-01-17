@@ -868,6 +868,10 @@ public strictfp class RobotPlayer {
 					if (info == dominated)
 					{
 						ret += 5000 * d;
+						if (d < myRadius + info.type.bodyRadius + 1)
+						{
+							ret += 5000;
+						}
 					}
 					else
 					{
@@ -1030,11 +1034,11 @@ public strictfp class RobotPlayer {
 						{
 							float alongDist = (float)Math.abs(distToRobot * Math.cos(theta)); // soh cah toa :)
 							int roundsToHit = (int) (alongDist / bullet.speed);
-							if (roundsToHit == 0)
+							if (bulletLocation.add(propagationDirection, bullet.speed).distanceTo(loc) <= myRadius || roundsToHit == 0)
 							{
 								ret += 200000000;
 							}
-							else
+							else if (!isScout)
 							{
 								ret += 200000000 / distToRobot;
 							}
