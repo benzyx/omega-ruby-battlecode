@@ -83,6 +83,7 @@ public strictfp class RobotPlayer {
 		RobotPlayer.rc = rc;
 
 		myType = rc.getType();		
+		myTeam = rc.getTeam();
 		numberOfChannel = myNumberOfChannel();
 		myStride = myType.strideRadius;
 		myRadius = myType.bodyRadius;
@@ -314,17 +315,16 @@ public strictfp class RobotPlayer {
 						default:
 							req = 6;
 						}
-
-						MapLocation currLocation = myLocation;
 						MapLocation enemyLocation = info.getLocation();
-						float dx = ((currLocation.x - enemyLocation.x) / dist);
-						float dy = ((currLocation.y - enemyLocation.y) / dist);
+						Direction currDirection = myLocation.directionTo(enemyLocation);
+
 						boolean isNeutralTree = false;
 						boolean isEnemyTree = false;
 
-						for (float d = 1; d < dist; d += 1.5) 
+						MapLocation currLocation = myLocation.add(currDirection, 1);
+						for (int i = 0; i < (dist - 1) / 1.5; i++, currLocation = currLocation.add(currDirection, 1.5f)) 
 						{
-							TreeInfo ti = rc.senseTreeAtLocation(new MapLocation(currLocation.x + dx * d, currLocation.y + dy * d));
+							TreeInfo ti = rc.senseTreeAtLocation(currLocation);
 							if (ti != null && ti.team == Team.NEUTRAL)
 							{
 								isNeutralTree = true;
@@ -1226,7 +1226,6 @@ public strictfp class RobotPlayer {
 			repelWeight[idx] = 10000;
 		}
 		roam = false;
-		myTeam = rc.getTeam();
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets();
