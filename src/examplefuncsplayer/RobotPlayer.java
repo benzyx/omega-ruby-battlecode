@@ -66,6 +66,7 @@ public strictfp class RobotPlayer {
     static MapLocation reflection;
     static int lastGardenerHitRound;
     static boolean friendlyFireSpot;
+    static boolean hasBeenThreatened;
     
     static int retHelper1, retHelper2;
     
@@ -1294,6 +1295,11 @@ public strictfp class RobotPlayer {
     		case TANK:
     		case SCOUT:
     			threatened = true;
+    			if (!hasBeenThreatened)
+    			{
+    				hasBeenThreatened = true;
+    				lastGardenerHitRound = round;
+    			}
     			break loop;
     		default:
     			;
