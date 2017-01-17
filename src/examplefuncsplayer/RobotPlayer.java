@@ -292,7 +292,7 @@ public strictfp class RobotPlayer {
 		            	}
             		}
             	}
-            	else if (isSoldier || isTank || (isScout && trees >= 5))
+            	else if (isSoldier || isTank || isScout)
             	{
             		friendlyFireSpot = false;
 	            	long bestVal = 0;
