@@ -324,7 +324,14 @@ public strictfp class RobotPlayer {
 	            			}
 	            		}
 	            	}
-	            	smartShot(dir, enemyType, enemyDistance);
+	            	if (isScout && enemyType != RobotType.GARDENER && trees < 4)
+	            	{
+	            		;
+	            	}
+	            	else
+	            	{
+	            		smartShot(dir, enemyType, enemyDistance);
+	            	}
 	            	// pink line showing who i wanna shoot
 	            	rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
             	}
