@@ -670,9 +670,11 @@ public strictfp class RobotPlayer {
     public static RobotType getBuildOrderNext(int index){
     	 RobotType[] buildOrder = 
     	{
+    			RobotType.SCOUT,
+    			RobotType.ARCHON,
+    			RobotType.SOLDIER,
      			RobotType.SCOUT,
      			RobotType.ARCHON,
-    			RobotType.SOLDIER,
     			null
     	};
     	return buildOrder[index];
