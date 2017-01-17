@@ -714,6 +714,8 @@ public strictfp class RobotPlayer {
 			    		ret += 1000 * d;
 	    			}
 	    		}
+	    		// soldier could be kited by scout when gardener sees soldier but the soldier does not
+	    		// see the scout.
 	    		if (isSoldier && round - helpRound <= 1)
 	    		{
 	    			ret += 400000 * loc.distanceTo(helpLocation);
