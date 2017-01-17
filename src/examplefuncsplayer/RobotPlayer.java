@@ -21,6 +21,7 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_HAPPY_PLACE = 16;
 	public static final int CHANNEL_GARDENER_LOCATIONS = 200;
 	public static final int CHANNEL_ATTACK = 999;
+	public static final int CHANNEL_FIRST_SOLDIER_BLOCKED = 998;
 
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -35,9 +36,9 @@ public strictfp class RobotPlayer {
 	static BulletInfo[] nearbyBullets;
 	static TreeInfo[] nearbyTrees;
 	static TreeInfo[] neutralTrees;
-	static MapLocation[] repellers = new MapLocation[25];
-	static int[] repelWeight = new int[25];
-	//    static MapLocation[] history = new MapLocation[10];
+//	static MapLocation[] repellers = new MapLocation[25];
+//	static int[] repelWeight = new int[25];
+    static MapLocation[] history = new MapLocation[10];
 	static TreeInfo closestTree = null;	// scouts use this to shake trees
 	static int numberOfChannel;
 	static RobotType myType;
@@ -321,10 +322,15 @@ public strictfp class RobotPlayer {
 						boolean isNeutralTree = false;
 						boolean isEnemyTree = false;
 
+						int onBegin = Clock.getBytecodesLeft();
 						MapLocation currLocation = myLocation.add(currDirection, 1.001f);
-						int limit = (int) ((dist - 1) / 1.5);
-						for (int i = 0; i < limit; i++, currLocation = currLocation.add(currDirection, 1.5f)) 
+						float per = (dist - 1.003f - info.getRadius()) / 4;
+						for (int i = 0; i < 5; i++, currLocation = currLocation.add(currDirection, per)) 
 						{
+							if (!rc.canSenseLocation(currLocation))
+							{
+								continue;
+							}
 							TreeInfo ti = rc.senseTreeAtLocation(currLocation);
 							if (ti == null)
 							{
@@ -339,6 +345,7 @@ public strictfp class RobotPlayer {
 								isEnemyTree = true;
 							}
 						}
+						System.out.println(onBegin - Clock.getBytecodesLeft());
 
 						if (dist < 3 && info.getType() == RobotType.LUMBERJACK) 
 						{
@@ -553,6 +560,10 @@ public strictfp class RobotPlayer {
 		lumberjacks = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_LUMBERJACKS));
 		scouts = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_SCOUTS));
 		trees = rc.getTreeCount();
+		if (rc.readBroadcast(CHANNEL_FIRST_SOLDIER_BLOCKED) != 0)
+		{
+			soldiers += 2;
+		}
 	}
 
 	public static void debug_highlightClosestGardener() throws GameActionException
@@ -1139,6 +1150,10 @@ public strictfp class RobotPlayer {
 		{
 			after = 500;
 		}
+		if (isSoldier || isTank || isScout)
+		{
+			after += 284 * (nearbyEnemies.length + 1);
+		}
 		while (Clock.getBytecodesLeft() - longest > after && iterations < 100)
 		{
 			int t1 = Clock.getBytecodesLeft();
@@ -1228,12 +1243,6 @@ public strictfp class RobotPlayer {
 
 	public static void onRoundBegin() throws GameActionException
 	{
-		int idx = round % repellers.length;
-		if (freeRange)
-		{
-			repellers[idx] = myLocation;
-			repelWeight[idx] = 10000;
-		}
 		roam = false;
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
@@ -1253,6 +1262,7 @@ public strictfp class RobotPlayer {
 		bottomBound = rc.readBroadcast(CHANNEL_MAP_BOTTOM);
 		topBound = rc.readBroadcast(CHANNEL_MAP_TOP);
 		myLocation = rc.getLocation();
+		history[round  % history.length] = myLocation;
 		controlRadius = rc.readBroadcast(CHANNEL_CONTROL_RADIUS) / 1000f;
 		helpLocation = readPoint(CHANNEL_CALL_FOR_HELP);
 		helpRound = rc.readBroadcast(CHANNEL_CALL_FOR_HELP_ROUND);
@@ -1371,8 +1381,31 @@ public strictfp class RobotPlayer {
 		{
 			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
 		}
+		if (myID == 0 && freeRange && isSoldier && nearbyEnemies.length == 0)
+		{
+			if (checkBlocked())
+			{
+				rc.broadcast(CHANNEL_FIRST_SOLDIER_BLOCKED, 1);
+				freeRange = false;
+			}
+		}
 	}
 
+	static boolean checkBlocked()
+	{
+		for (int i = 0; i < history.length; i++)
+		{
+			if (history[i] == null)
+			{
+				return false;
+			}
+			if (history[i].distanceTo(myLocation) > 1)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
 	static void findReflection() throws GameActionException
 	{
 		reflection = null;
