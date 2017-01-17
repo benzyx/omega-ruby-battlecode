@@ -73,6 +73,7 @@ public strictfp class RobotPlayer {
 	static int lastGardenerHitRound;
 	static boolean friendlyFireSpot;
 	static boolean hasBeenThreatened;
+	static int[] dominationTable;
 
 	static int retHelper1, retHelper2;
 
@@ -1417,6 +1418,65 @@ public strictfp class RobotPlayer {
 				freeRange = false;
 			}
 		}
+		int a = Clock.getBytecodesLeft();
+		int hashTableLen = rc.readBroadcast(CHANNEL_HASH_TABLE_SIZE);
+		if (hashTableLen < 400)
+		{
+			for (RobotInfo enemy : nearbyEnemies)
+			{
+				hashTableInsert(enemy.ID);
+			}
+		}
+		debug_printTimeTaken("Hash table update", a);
+		if (isScout && dominationTable == null)
+		{
+			dominationTable = new int[HASH_TABLE_LEN];
+			for (int i = 0; i < HASH_TABLE_LEN; i++)
+			{
+				dominationTable[i] = rc.readBroadcast(CHANNEL_HASH_TABLE + i);
+			}
+		}
+		if (isArchon)
+		{
+			hashTableLen = 0;
+			for (int i = 0; i < HASH_TABLE_LEN; i++)
+			{
+				if (rc.readBroadcast(CHANNEL_HASH_TABLE + i) != 0)
+				{
+					++hashTableLen;
+				}
+			}
+			rc.broadcast(CHANNEL_HASH_TABLE_SIZE, hashTableLen);
+		}
+	}
+	
+	static void hashTableInsert(int x) throws GameActionException
+	{
+		int p = x;
+		for (;;)
+		{
+			p %= HASH_TABLE_LEN;
+			int c = p + CHANNEL_HASH_TABLE;
+			int at = rc.readBroadcast(c);
+			if (at == 0)
+			{
+				rc.broadcast(c, x);
+				return;
+			}
+			else if (at == x)
+			{
+				return;
+			}
+			else
+			{
+				++p;
+			}
+		}
+	}
+	
+	static void debug_printTimeTaken(String cause, int original)
+	{
+		System.out.println(cause + " took " + (original - Clock.getBytecodesLeft()) + " bytecodes");
 	}
 
 	static boolean checkBlocked()
