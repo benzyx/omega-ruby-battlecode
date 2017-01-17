@@ -676,7 +676,7 @@ public strictfp class RobotPlayer {
 				rc.setIndicatorDot(myLocation, 0, 255, 0);
 				attemptBuild(10, RobotType.ARCHON); // plant a tree
 			}
-			if (trees >= 5 && scouts < 3)
+			if (scouts <= 1 || (trees >= 5 && scouts <= 3))
 			{
 				attemptBuild(10, RobotType.SCOUT);
 			}
