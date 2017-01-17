@@ -66,6 +66,7 @@ public strictfp class RobotPlayer {
     static MapLocation reflection;
     static int lastGardenerHitRound;
     static boolean friendlyFireSpot;
+    static boolean hasBeenThreatened;
     
     static int retHelper1, retHelper2;
     
@@ -677,9 +678,11 @@ public strictfp class RobotPlayer {
     public static RobotType getBuildOrderNext(int index){
     	 RobotType[] buildOrder = 
     	{
+    			RobotType.SCOUT,
+    			RobotType.ARCHON,
+    			RobotType.SOLDIER,
      			RobotType.SCOUT,
      			RobotType.ARCHON,
-    			RobotType.SOLDIER,
     			null
     	};
     	return buildOrder[index];
@@ -719,6 +722,8 @@ public strictfp class RobotPlayer {
 			    		ret += 1000 * d;
 	    			}
 	    		}
+	    		// soldier could be kited by scout when gardener sees soldier but the soldier does not
+	    		// see the scout.
 	    		if (isSoldier && round - helpRound <= 1)
 	    		{
 	    			ret += 400000 * loc.distanceTo(helpLocation);
@@ -1290,6 +1295,11 @@ public strictfp class RobotPlayer {
     		case TANK:
     		case SCOUT:
     			threatened = true;
+    			if (!hasBeenThreatened)
+    			{
+    				hasBeenThreatened = true;
+    				lastGardenerHitRound = round;
+    			}
     			break loop;
     		default:
     			;
