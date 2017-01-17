@@ -19,9 +19,13 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_CALL_FOR_HELP = 13;
 	public static final int CHANNEL_CALL_FOR_HELP_ROUND = 15;
 	public static final int CHANNEL_HAPPY_PLACE = 16;
-	public static final int CHANNEL_GARDENER_LOCATIONS = 200;
-	public static final int CHANNEL_ATTACK = 999;
-	public static final int CHANNEL_FIRST_SOLDIER_BLOCKED = 998;
+	public static final int CHANNEL_ATTACK = 18;
+	public static final int CHANNEL_FIRST_SOLDIER_BLOCKED = 19;
+	public static final int CHANNEL_GARDENER_LOCATIONS = 20;
+	public static final int GARDENER_LOC_LIMIT = 10;
+	public static final int CHANNEL_HASH_TABLE_SIZE = 200;
+	public static final int CHANNEL_HASH_TABLE = 201;
+	public static final int HASH_TABLE_LEN = 1000 - CHANNEL_HASH_TABLE;
 
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -1287,8 +1291,8 @@ public strictfp class RobotPlayer {
 		controlRadius = rc.readBroadcast(CHANNEL_CONTROL_RADIUS) / 1000f;
 		helpLocation = readPoint(CHANNEL_CALL_FOR_HELP);
 		helpRound = rc.readBroadcast(CHANNEL_CALL_FOR_HELP_ROUND);
-		oldGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 100 * (round % 2);
-		newGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 100 * ((round + 1) % 2);
+		oldGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 50 * (round % 2);
+		newGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 50 * ((round + 1) % 2);
 		aggro = rc.readBroadcast(CHANNEL_ATTACK) != 0;
 		happyPlace = readPoint(CHANNEL_HAPPY_PLACE);
 
@@ -1319,7 +1323,7 @@ public strictfp class RobotPlayer {
 		if (isGardener)
 		{
 			gardenerLocsLen = rc.readBroadcast(oldGardenerLocChannel);
-			if (gardenerLocsLen <= 10)
+			if (gardenerLocsLen <= GARDENER_LOC_LIMIT)
 			{
 				for (int i = 0; i < gardenerLocsLen; i++)
 				{
@@ -1338,8 +1342,11 @@ public strictfp class RobotPlayer {
 				}
 			}
 			int clen = rc.readBroadcast(newGardenerLocChannel);
-			writePoint(newGardenerLocChannel + 1 + clen * 2, myLocation);
-			rc.broadcast(newGardenerLocChannel, clen + 1);
+			if (clen <= GARDENER_LOC_LIMIT)
+			{
+				writePoint(newGardenerLocChannel + 1 + clen * 2, myLocation);
+				rc.broadcast(newGardenerLocChannel, clen + 1);
+			}
 		}
 
 		threatened = false;
