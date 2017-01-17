@@ -662,10 +662,6 @@ public strictfp class RobotPlayer {
 //    	{
 //    		rc.donate(10);
 //    	}
-    	if (rc.getRoundNum() + 2 >= rc.getRoundLimit() || rc.getTeamVictoryPoints() + rc.getTeamBullets() / 10 > 1000)
-    	{
-    		rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
-    	}
     	
     	if (trees >= 15)
     	{
@@ -895,7 +891,7 @@ public strictfp class RobotPlayer {
     	{
     		ret += 20000 * loc.distanceTo(reflection);
     	}
-    	else if (!bruteDefence && !isGardener && !isArchon)
+    	else if (!bruteDefence && !isArchon)
     	{
 	    	for (int i = 0; i < importantBulletIndex; i++)
 	    	{
@@ -1339,6 +1335,10 @@ public strictfp class RobotPlayer {
     	{
     		findReflection();
     		trees = rc.getTreeCount();
+    	}
+    	if (rc.getRoundNum() + 2 >= rc.getRoundLimit() || rc.getTeamVictoryPoints() + rc.getTeamBullets() / 10 > 1000)
+    	{
+    		rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
     	}
     }
     
