@@ -122,7 +122,7 @@ public strictfp class RobotPlayer {
 		{
 			freeRange = true;
 		}
-		if (isScout)
+		if (isScout || isTank)
 		{
 			freeRange = true;
 		}
