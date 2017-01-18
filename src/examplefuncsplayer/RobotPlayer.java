@@ -762,7 +762,7 @@ public strictfp class RobotPlayer {
 			{
 				RobotType.SCOUT,
 				RobotType.ARCHON,
-				RobotType.SOLDIER,
+				RobotType.SCOUT,
 				RobotType.ARCHON,
 				RobotType.SCOUT,
 				null
