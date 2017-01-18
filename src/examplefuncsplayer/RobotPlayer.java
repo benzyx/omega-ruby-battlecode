@@ -331,6 +331,7 @@ public strictfp class RobotPlayer {
 							{
 								ok = true;
 							}
+							System.out.println("ok = " + ok + "; " + a.distanceTo(b) + "; " + myLocation.distanceTo(them));
 						}
 						if (ok)
 						{
@@ -864,9 +865,14 @@ public strictfp class RobotPlayer {
 					if (info == dominated)
 					{
 						ret += 5000 * d;
-						if (d < myRadius + info.type.bodyRadius + 1)
+						float threshold = myRadius + info.type.bodyRadius;
+						if (d < threshold + 1)
 						{
-							ret += 5000;
+							ret -= 5000;
+						}
+						if (d < threshold + GameConstants.BULLET_SPAWN_OFFSET)
+						{
+							ret -= 5000;
 						}
 					}
 					else
@@ -1328,6 +1334,7 @@ public strictfp class RobotPlayer {
 					{
 						cand = myLocation.add(myLocation.directionTo(them), myStride);
 					}
+					rc.setIndicatorLine(myLocation, cand, 0, 0, 255);
 					break;
 				case 2:
 				case 3:
@@ -1685,10 +1692,10 @@ public strictfp class RobotPlayer {
 		{
 			return true;
 		}
-		if (myID == 1 && info.getType() == RobotType.SCOUT)
-		{
-			return true;
-		}
+//		if (myID == 1 && info.getType() == RobotType.SCOUT)
+//		{
+//			return true;
+//		}
 //		int theirLatestRound = round - (int) (theirSpawns[0].distanceTo(info.getLocation()) / info.type.strideRadius);
 //		if (theirLatestRound < spawnRound)
 //		{
