@@ -1441,7 +1441,7 @@ public strictfp class RobotPlayer {
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets();
-		if (isGardener || isArchon)
+		if (isGardener)
 		{
 			nearbyTrees = rc.senseNearbyTrees(-1, myTeam);
 			neutralTrees = rc.senseNearbyTrees(-1, Team.NEUTRAL);
