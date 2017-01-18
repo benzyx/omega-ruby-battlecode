@@ -229,9 +229,9 @@ public strictfp class RobotPlayer {
 					}
 
 					if (closestTree != null){
-						// rc.setIndicatorDot(closestTree.location, 255, 0, 0);
+						rc.setIndicatorDot(closestTree.location, 255, 0, 0);
 						if (rc.canShake(closestTree.ID)){
-							// rc.setIndicatorDot(closestTree.location, 0, 255, 0);
+							rc.setIndicatorDot(closestTree.location, 0, 255, 0);
 							rc.shake(closestTree.ID);
 						}
 					}
@@ -299,10 +299,10 @@ public strictfp class RobotPlayer {
 					if (myClosestTree != null)
 					{
 						closestTree = myClosestTree;
-						// rc.setIndicatorDot(myClosestTree.location, 255, 0, 0);
+						rc.setIndicatorDot(myClosestTree.location, 255, 0, 0);
 						if (rc.canShake(myClosestTree.ID))
 						{
-							// rc.setIndicatorDot(myClosestTree.location, 0, 255, 0);
+							rc.setIndicatorDot(myClosestTree.location, 0, 255, 0);
 							rc.shake(myClosestTree.ID);
 						}
 						if (rc.canChop(myClosestTree.ID))
@@ -331,6 +331,7 @@ public strictfp class RobotPlayer {
 							{
 								ok = true;
 							}
+							System.out.println("ok = " + ok + "; " + a.distanceTo(b) + "; " + myLocation.distanceTo(them));
 						}
 						if (ok)
 						{
@@ -421,7 +422,7 @@ public strictfp class RobotPlayer {
 					}
 
 					// pink line showing who i wanna shoot
-					// rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
+					rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
 				}
 
 				onRoundEnd();
@@ -429,7 +430,7 @@ public strictfp class RobotPlayer {
 				if (round != rc.getRoundNum() || Clock.getBytecodesLeft() < 20)
 				{
 					System.out.println("TLE");
-					// rc.setIndicatorLine(myLocation, theirSpawns[0], 255, 0, 0);
+					rc.setIndicatorLine(myLocation, theirSpawns[0], 255, 0, 0);
 				}
 
 				Clock.yield();
@@ -438,7 +439,7 @@ public strictfp class RobotPlayer {
 			{
 				System.out.println("Exception in robot loop");
 				e.printStackTrace();
-				// rc.setIndicatorLine(myLocation, theirSpawns[0], 255, 0, 0);
+				rc.setIndicatorLine(myLocation, theirSpawns[0], 255, 0, 0);
 			}
 		}
 	}
@@ -448,7 +449,7 @@ public strictfp class RobotPlayer {
 		for(RobotInfo info : nearbyFriends){
 			if (info.getLocation().distanceTo(myLocation) < enemyDistance && willCollideWithTarget(myLocation, dir, info)){
 				friendlyFireSpot = true;
-				// rc.setIndicatorDot(myLocation, 255, 255, 0);
+				rc.setIndicatorDot(myLocation, 255, 255, 0);
 				return; // friendly fire straight up
 			}
 
@@ -644,7 +645,7 @@ public strictfp class RobotPlayer {
 		}
 		if (pos != null)
 		{
-			// rc.setIndicatorLine(myLocation, pos, 0, 255, 0);
+			rc.setIndicatorLine(myLocation, pos, 0, 255, 0);
 		}
 	}
 
@@ -696,7 +697,7 @@ public strictfp class RobotPlayer {
 		}
 		if (bestTree != null){
 			rc.water(bestTree.ID);
-			// rc.setIndicatorLine(myLocation, bestTree.location, 0, 0, 255);
+			rc.setIndicatorLine(myLocation, bestTree.location, 0, 0, 255);
 		}
 	}
 	
@@ -728,7 +729,7 @@ public strictfp class RobotPlayer {
 		{
 			if (wantGardener)
 			{
-				// rc.setIndicatorDot(myLocation, 0, 0, 0);
+				rc.setIndicatorDot(myLocation, 0, 0, 0);
 				attemptBuild(10, RobotType.GARDENER);
 			}
 		}
@@ -741,7 +742,7 @@ public strictfp class RobotPlayer {
 			}
 			if (soldiers >= 2 && rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5))
 			{
-				// rc.setIndicatorDot(myLocation, 0, 255, 0);
+				rc.setIndicatorDot(myLocation, 0, 255, 0);
 				attemptBuild(10, RobotType.ARCHON); // plant a tree
 			}
 			if (scouts <= 1 || (trees >= 5 && scouts <= 3))
@@ -762,7 +763,7 @@ public strictfp class RobotPlayer {
 			{
 				RobotType.SCOUT,
 				RobotType.ARCHON,
-				RobotType.SOLDIER,
+				RobotType.SCOUT,
 				RobotType.ARCHON,
 				RobotType.SCOUT,
 				null
@@ -864,9 +865,14 @@ public strictfp class RobotPlayer {
 					if (info == dominated)
 					{
 						ret += 5000 * d;
-						if (d < myRadius + info.type.bodyRadius + 1)
+						float threshold = myRadius + info.type.bodyRadius;
+						if (d < threshold + 1)
 						{
-							ret += 5000;
+							ret -= 5000;
+						}
+						if (d < threshold + GameConstants.BULLET_SPAWN_OFFSET)
+						{
+							ret -= 5000;
 						}
 					}
 					else
@@ -1175,7 +1181,7 @@ public strictfp class RobotPlayer {
 		for (int i = 0; i < importantBulletIndex; i++)
 		{
 			BulletInfo bullet = nearbyBullets[i];
-			// rc.setIndicatorLine(bullet.location, bullet.location.add(bullet.dir, 0.3f), 255, 255, 0);
+			rc.setIndicatorLine(bullet.location, bullet.location.add(bullet.dir, 0.3f), 255, 255, 0);
 		}
 	}
 	
@@ -1228,7 +1234,7 @@ public strictfp class RobotPlayer {
 	{
 		if (treeBuildTarget != null)
 		{
-			// rc.setIndicatorLine(myLocation, treeBuildTarget, 0, 100, 0);
+			rc.setIndicatorLine(myLocation, treeBuildTarget, 0, 100, 0);
 		}
 		if (isGardener)
 		{
@@ -1246,7 +1252,7 @@ public strictfp class RobotPlayer {
 			}
 			if (loc != null)
 			{
-				// rc.setIndicatorLine(myLocation, loc, 0, 0, 100);
+				rc.setIndicatorLine(myLocation, loc, 0, 0, 100);
 			}
 		}
 	}
@@ -1328,6 +1334,7 @@ public strictfp class RobotPlayer {
 					{
 						cand = myLocation.add(myLocation.directionTo(them), myStride);
 					}
+					rc.setIndicatorLine(myLocation, cand, 0, 0, 255);
 					break;
 				case 2:
 				case 3:
@@ -1544,7 +1551,7 @@ public strictfp class RobotPlayer {
 		}
 		if (bruteDefence)
 		{
-			// rc.setIndicatorDot(myLocation, 0, 0, 0);
+			rc.setIndicatorDot(myLocation, 0, 0, 0);
 		}
 
 		int a = Clock.getBytecodesLeft();
@@ -1619,8 +1626,8 @@ public strictfp class RobotPlayer {
 		{
 			if (dominates(info))
 			{
-				// rc.setIndicatorLine(myLocation, info.getLocation(), 100, 0, 0);
-				// rc.setIndicatorDot(info.getLocation(), 100, 0, 0);
+				rc.setIndicatorLine(myLocation, info.getLocation(), 100, 0, 0);
+				rc.setIndicatorDot(info.getLocation(), 100, 0, 0);
 			}
 		}
 	}
@@ -1681,11 +1688,11 @@ public strictfp class RobotPlayer {
 		default:
 			;
 		}
-//		if (info.moveCount == 0 && info.attackCount == 0)
-//		{
-//			return true;
-//		}
-//		if (myID == 1)
+		if (info.moveCount == 0 && info.attackCount == 0)
+		{
+			return true;
+		}
+//		if (myID == 1 && info.getType() == RobotType.SCOUT)
 //		{
 //			return true;
 //		}
@@ -1826,12 +1833,12 @@ public strictfp class RobotPlayer {
 	{
 		if (dominated != null)
 		{
-			// rc.setIndicatorLine(myLocation, dominated.getLocation(), 200, 100, 0);
+			rc.setIndicatorLine(myLocation, dominated.getLocation(), 200, 100, 0);
 		}
 	}
 	static void debug_line(MapLocation p1, MapLocation p2, int r, int g, int b) throws GameActionException
 	{
-		// rc.setIndicatorLine(p1, p2, r, g, b);
+		rc.setIndicatorLine(p1, p2, r, g, b);
 	}
 
 	static boolean canGoTo(MapLocation loc) throws GameActionException
@@ -1965,7 +1972,7 @@ public strictfp class RobotPlayer {
 	{
 		for (int i = 0; i < hexLen; i++)
 		{
-			// rc.setIndicatorDot(hexes[i], 0, 0, 0);
+			rc.setIndicatorDot(hexes[i], 0, 0, 0);
 		}
 	}
 
