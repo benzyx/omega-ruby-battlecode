@@ -1696,7 +1696,6 @@ public strictfp class RobotPlayer {
 		{
 		case ARCHON:
 		case LUMBERJACK:
-		case TANK:
 			return false;
 		default:
 			;
