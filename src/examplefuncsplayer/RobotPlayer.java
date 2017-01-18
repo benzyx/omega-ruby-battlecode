@@ -790,7 +790,7 @@ public strictfp class RobotPlayer {
 		default:;
 		}
 
-		if (isSoldier || isLumberjack)
+		if (isSoldier || isLumberjack || isTank)
 		{
 			if (isLumberjack && choppableTree != null) 
 			{
