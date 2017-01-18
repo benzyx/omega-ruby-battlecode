@@ -82,6 +82,7 @@ public strictfp class RobotPlayer {
 	static int spawnRound;
 	static RobotInfo dominated;
 	static int lastScoutBuildTime;
+	static boolean skipToNextRound;
 
 	static int retHelper1, retHelper2;
 
@@ -155,6 +156,11 @@ public strictfp class RobotPlayer {
 				round = rc.getRoundNum();
 
 				onRoundBegin();
+				if (skipToNextRound)
+				{
+					skipToNextRound = false;
+					continue;
+				}
 				destination = readPoint(CHANNEL_RALLY_POINT);
 				if (freeRange && theirSpawns == null)
 				{
@@ -1580,6 +1586,7 @@ public strictfp class RobotPlayer {
 				{
 					dominationTable[i] = rc.readBroadcast(CHANNEL_HASH_TABLE + i);
 				}
+				skipToNextRound = true;
 			}
 			debug_highlightDomination();
 		}
