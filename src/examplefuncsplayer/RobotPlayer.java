@@ -178,9 +178,9 @@ public strictfp class RobotPlayer {
 
 				if (freeRange)
 				{
-					if (retargetCount < theirSpawns.length)
+					if (retargetCount < 15)
 					{
-						currentTarget = theirSpawns[retargetCount];
+						currentTarget = theirSpawns[retargetCount % theirSpawns.length];
 						if (myLocation.distanceTo(currentTarget) < 4)
 						{
 							boolean anyGardener = false;
@@ -195,10 +195,6 @@ public strictfp class RobotPlayer {
 							if (!anyGardener)
 							{
 								++retargetCount;
-								if (isScout)
-								{
-									retargetCount %= theirSpawns.length;
-								}
 							}
 						}
 					}
@@ -1579,7 +1575,10 @@ public strictfp class RobotPlayer {
 		{
 			for (RobotInfo enemy : nearbyEnemies)
 			{
-				hashTableInsert(enemy.ID);
+				if (enemy.moveCount != 0 || enemy.attackCount != 0)
+				{
+					hashTableInsert(enemy.ID);
+				}
 			}
 		}
 		debug_printTimeTaken("Hash table update", a);
