@@ -23,8 +23,8 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_FIRST_SOLDIER_BLOCKED = 19;
 	public static final int CHANNEL_GARDENER_LOCATIONS = 20;
 	public static final int GARDENER_LOC_LIMIT = 10;
-	// Channels 20-100 reserved for gardeners
-	public static final int CHANNEL_LAST_SCOUT_BUILD_TIME = 101;
+	// Channels 20-120 reserved for gardeners
+	public static final int CHANNEL_LAST_SCOUT_BUILD_TIME = 121;
 	public static final int SCOUT_BUILD_INTERVAL = 80;
 	public static final int CHANNEL_HASH_TABLE_SIZE = 200;
 	public static final int CHANNEL_HASH_TABLE = 201;
@@ -122,7 +122,7 @@ public strictfp class RobotPlayer {
 		{
 			freeRange = true;
 		}
-		if (isScout)
+		if (isScout || isTank)
 		{
 			freeRange = true;
 		}
@@ -178,9 +178,9 @@ public strictfp class RobotPlayer {
 
 				if (freeRange)
 				{
-					if (retargetCount < theirSpawns.length)
+					if (retargetCount < 15)
 					{
-						currentTarget = theirSpawns[retargetCount];
+						currentTarget = theirSpawns[retargetCount % theirSpawns.length];
 						if (myLocation.distanceTo(currentTarget) < 4)
 						{
 							boolean anyGardener = false;
@@ -195,10 +195,6 @@ public strictfp class RobotPlayer {
 							if (!anyGardener)
 							{
 								++retargetCount;
-								if (isScout)
-								{
-									retargetCount %= theirSpawns.length;
-								}
 							}
 						}
 					}
@@ -739,7 +735,7 @@ public strictfp class RobotPlayer {
 
 		if (isGardener)
 		{
-			if (round - lastScoutBuildTime > SCOUT_BUILD_INTERVAL)
+			if (round - lastScoutBuildTime > SCOUT_BUILD_INTERVAL && trees >= 2)
 			{
 				attemptBuild(10, RobotType.SCOUT);
 			}
@@ -752,25 +748,6 @@ public strictfp class RobotPlayer {
 			{
 				attemptBuild(10, RobotType.SCOUT);
 			}
-			if (aggro && rc.getTeamBullets() > 300)
-			{
-				if (rand() < 50)
-				{
-					attemptBuild(10, RobotType.LUMBERJACK);
-				}
-				else
-				{
-					attemptBuild(10, RobotType.SOLDIER);
-				}
-			}
-			//    		if (neutralTrees.length >= 10 && lumberjacks < trees + 3)
-			//    		{
-			//    			attemptBuild(10, RobotType.LUMBERJACK);
-			//    		}
-			//    		if (lumberjacks < 2 && rc.getTeamBullets() > 150)
-			//    		{
-			//    			attemptBuild(10, RobotType.LUMBERJACK);
-			//    		}
 			if (soldiers < trees / 2 || soldiers < 2)
 			{
 				attemptBuild(10, RobotType.SOLDIER);
@@ -1373,6 +1350,10 @@ public strictfp class RobotPlayer {
 					break;
 				}
 			}
+			else if (iterations == 2 && currentTarget != null)
+			{
+				cand = myLocation.add(myLocation.directionTo(currentTarget), myStride);
+			}
 			if (rc.canMove(cand))
 			{
 				long b = badness(cand);
@@ -1572,7 +1553,10 @@ public strictfp class RobotPlayer {
 		{
 			for (RobotInfo enemy : nearbyEnemies)
 			{
-				hashTableInsert(enemy.ID);
+				if (enemy.moveCount != 0 || enemy.attackCount != 0)
+				{
+					hashTableInsert(enemy.ID);
+				}
 			}
 		}
 		debug_printTimeTaken("Hash table update", a);
@@ -1605,6 +1589,8 @@ public strictfp class RobotPlayer {
 		{
 			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
 		}
+		if (rc.getRoundNum() >= 2750 || (rc.getRoundNum() >= 2500 && rc.readBroadcast(CHANNEL_NUMBER_OF_ARCHONS) == 0))
+			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
 		if (myID == 0 && freeRange && isSoldier && nearbyEnemies.length == 0)
 		{
 			if (checkBlocked())
@@ -1689,11 +1675,19 @@ public strictfp class RobotPlayer {
 		switch (info.getType())
 		{
 		case ARCHON:
+		case GARDENER:
 		case LUMBERJACK:
-		case TANK:
 			return false;
 		default:
 			;
+		}
+		if (info.moveCount == 0 && info.attackCount == 0)
+		{
+			return true;
+		}
+		if (myID == 1)
+		{
+			return true;
 		}
 //		int theirLatestRound = round - (int) (theirSpawns[0].distanceTo(info.getLocation()) / info.type.strideRadius);
 //		if (theirLatestRound < spawnRound)
