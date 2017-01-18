@@ -735,11 +735,8 @@ public strictfp class RobotPlayer {
 
 		if (isGardener)
 		{
-			if (round - lastScoutBuildTime > SCOUT_BUILD_INTERVAL)
+			if (round - lastScoutBuildTime > SCOUT_BUILD_INTERVAL && trees >= 2)
 			{
-				System.out.println(round);
-				System.out.println(lastScoutBuildTime);
-				System.out.println(SCOUT_BUILD_INTERVAL);
 				attemptBuild(10, RobotType.SCOUT);
 			}
 			if (soldiers >= 2 && rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5))
