@@ -70,6 +70,7 @@ public strictfp class RobotPlayer {
 	static int hexLen;
 	static boolean roam; // for gardeners
 	static MapLocation reflection;
+	static RobotInfo reflectionTarget;
 	static int lastGardenerHitRound;
 	static boolean friendlyFireSpot;
 	static boolean hasBeenThreatened;
@@ -1002,7 +1003,8 @@ public strictfp class RobotPlayer {
 		{
 			ret += 20000 * loc.distanceTo(reflection);
 		}
-		else if (!bruteDefence && !isArchon)
+		
+		if (!bruteDefence && !isArchon)
 		{
 			ret += bulletDodgeWeight(loc);
 		}
@@ -1021,8 +1023,12 @@ public strictfp class RobotPlayer {
 			for (int i = 0; i < importantBulletIndex; i++)
 			{
 				BulletInfo bullet = nearbyBullets[i];
-				Direction dir = bullet.dir;
 				MapLocation a = bullet.location;
+				if (reflection != null && a.distanceTo(reflectionTarget.location) < a.distanceTo(loc))
+				{
+					continue;
+				}
+				Direction dir = bullet.dir;
 				MapLocation b = a.add(dir, bullet.speed);
 				Direction toRobot = a.directionTo(loc);
 				
@@ -1043,10 +1049,6 @@ public strictfp class RobotPlayer {
 				if (d < myRadius)
 				{
 					ret += BULLET_HIT_WEIGHT;
-				}
-				else
-				{
-					ret += 0;
 				}
 			}
 		}
@@ -1100,7 +1102,7 @@ public strictfp class RobotPlayer {
 
 	static int importantBulletIndex;
 
-	public static void preprocessBullets()
+	public static void preprocessBullets() throws GameActionException
 	{
 		importantBulletIndex = nearbyBullets.length;
 		for (int i = 0; i < importantBulletIndex; i++)
@@ -1148,7 +1150,7 @@ public strictfp class RobotPlayer {
 				--i;
 			}
 		}
-		int lim = 5;
+		int lim = 10;
 		if (importantBulletIndex > lim)
 		{
 			for (int i = 0; i < lim; i++)
@@ -1170,8 +1172,18 @@ public strictfp class RobotPlayer {
 			}
 			importantBulletIndex = lim;
 		}
+		debug_highlightImportantBullets();
 	}
 
+	private static void debug_highlightImportantBullets() throws GameActionException
+	{
+		for (int i = 0; i < importantBulletIndex; i++)
+		{
+			BulletInfo bullet = nearbyBullets[i];
+			rc.setIndicatorLine(bullet.location, bullet.location.add(bullet.dir, 0.3f), 255, 255, 0);
+		}
+	}
+	
 	public static float getIdealDistanceMultiplier(RobotType t)
 	{
 		switch (t) {
@@ -1270,11 +1282,12 @@ public strictfp class RobotPlayer {
 		{
 			after += 284 * (nearbyEnemies.length + 1);
 		}
+		System.out.println(Clock.getBytecodesLeft());
 		while (Clock.getBytecodesLeft() - longest > after && iterations < 100)
 		{
 			int t1 = Clock.getBytecodesLeft();
 			float add;
-			if (longest > 600 && nearbyBullets.length >= 5)
+			if (longest > 500 && nearbyBullets.length >= 5)
 			{
 				add = myStride;
 			}
@@ -1301,20 +1314,44 @@ public strictfp class RobotPlayer {
 					cand = myLocation;
 				}
 			}
-			if (dominated != null)
+			else if (iterations == 1 && nearbyBullets.length > 0)
+			{
+				cand = myLocation.add(nearbyBullets[0].dir, myStride);
+			}
+			else if (dominated != null)
 			{
 				MapLocation them = dominated.getLocation();
 				switch (iterations)
 				{
-				case 1:
+				case 4:
 					MapLocation ncand = them.add(them.directionTo(myLocation), dominated.type.bodyRadius + myRadius + 0.001f);
 					if (myLocation.distanceTo(ncand) < myStride)
 					{
 						cand = ncand;
 					}
+					else
+					{
+						cand = myLocation.add(myLocation.directionTo(them), myStride);
+					}
 					break;
 				case 2:
-					cand = myLocation.add(myLocation.directionTo(them), myStride);
+				case 3:
+					float a = myStride - 0.001f;
+					float b = myRadius + dominated.type.bodyRadius + 0.001f;
+					float c = myLocation.distanceTo(dominated.getLocation());
+					float q = (c * c + a * a - b * b) / (2 * c * a);
+					if (Math.abs(q) <= 1)
+					{
+						float angle = (float) Math.acos(q);
+						if (iterations == 2)
+						{
+							cand = myLocation.add(myLocation.directionTo(dominated.getLocation()).rotateLeftRads(angle), a);
+						}
+						else
+						{
+							cand = myLocation.add(myLocation.directionTo(dominated.getLocation()).rotateLeftRads(-angle), a);							
+						}
+					}
 					break;
 				}
 			}
@@ -1365,7 +1402,7 @@ public strictfp class RobotPlayer {
 	
 	static void debug_printAfterMovementLoop(int iterations, int longest)
 	{
-		System.out.println(iterations + " iterations; the longest one cost " + longest);
+		System.out.println(iterations + " iterations; the longest one cost " + longest + "; " + nearbyBullets.length + "/" + importantBulletIndex);
 	}
 
 	public static void onRoundEnd() throws GameActionException
@@ -1734,6 +1771,7 @@ public strictfp class RobotPlayer {
 				if (canGoTo(c))
 				{
 					reflection = c;
+					reflectionTarget = gardener;
 					debug_line(a, c, 255, 255, 0);
 					debug_line(myLocation, c, 127, 127, 0);
 					return true;
@@ -1747,6 +1785,7 @@ public strictfp class RobotPlayer {
 	{
 		reflection = null;
 		dominated = null;
+		reflectionTarget = null;
 		if (findReflection())
 		{
 			return;
