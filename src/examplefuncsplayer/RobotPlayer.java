@@ -14,7 +14,7 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_MAP_BOTTOM = 7;
 	public static final int CHANNEL_MAP_LEFT = 8;
 	public static final int CHANNEL_MAP_RIGHT = 9;
-	public static final int RALLY_POINT = 10;
+	public static final int CHANNEL_RALLY_POINT = 10;
 	public static final int CHANNEL_CONTROL_RADIUS = 12;
 	public static final int CHANNEL_CALL_FOR_HELP = 13;
 	public static final int CHANNEL_CALL_FOR_HELP_ROUND = 15;
@@ -23,8 +23,12 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_FIRST_SOLDIER_BLOCKED = 19;
 	public static final int CHANNEL_GARDENER_LOCATIONS = 20;
 	public static final int GARDENER_LOC_LIMIT = 10;
+	// Channels 20-120 reserved for gardeners
+	public static final int CHANNEL_LAST_SCOUT_BUILD_TIME = 121;
+	public static final int SCOUT_BUILD_INTERVAL = 80;
 	public static final int CHANNEL_HASH_TABLE_SIZE = 200;
 	public static final int CHANNEL_HASH_TABLE = 201;
+	// Channels 201-999 reserved for hash table
 	public static final int HASH_TABLE_LEN = 1000 - CHANNEL_HASH_TABLE;
 
 	public static final float REPULSION_RANGE = 1.7f;
@@ -77,6 +81,8 @@ public strictfp class RobotPlayer {
 	static int[] dominationTable;
 	static int spawnRound;
 	static RobotInfo dominated;
+	static int lastScoutBuildTime;
+	static boolean skipToNextRound;
 
 	static int retHelper1, retHelper2;
 
@@ -131,7 +137,7 @@ public strictfp class RobotPlayer {
 				//            	MapLocation rally = new MapLocation((us.x + us.x + them.x) / 3, (us.y + us.y + them.y) / 3);
 				//            	MapLocation rally = us.add(us.directionTo(them), 12);
 				MapLocation rally = us;
-				writePoint(RALLY_POINT, rally);
+				writePoint(CHANNEL_RALLY_POINT, rally);
 				writePoint(CHANNEL_HAPPY_PLACE, them);
 				rc.broadcast(CHANNEL_MAP_TOP, 100000);
 				rc.broadcast(CHANNEL_MAP_LEFT, 100000);
@@ -143,14 +149,19 @@ public strictfp class RobotPlayer {
 				//        		freeRange = true; // suicide mission
 			}
 		}
-		destination = readPoint(RALLY_POINT);
+		destination = readPoint(CHANNEL_RALLY_POINT);
 		while (true)
 		{
 			try {
 				round = rc.getRoundNum();
 
 				onRoundBegin();
-				destination = readPoint(RALLY_POINT);
+				if (skipToNextRound)
+				{
+					skipToNextRound = false;
+					continue;
+				}
+				destination = readPoint(CHANNEL_RALLY_POINT);
 				if (freeRange && theirSpawns == null)
 				{
 					theirSpawns = rc.getInitialArchonLocations(myTeam.opponent());
@@ -209,8 +220,7 @@ public strictfp class RobotPlayer {
 //					debug_line(myLocation, currentTarget, 100, 0, 100);
 //				}
 
-				if (isScout){
-
+				if (isScout || isArchon) {
 					float minDist = 99999999;
 					closestTree = null;
 					for (TreeInfo info : nearbyTrees)
@@ -593,6 +603,10 @@ public strictfp class RobotPlayer {
 				}
 				if (rc.canBuildRobot(type, dir)){
 					rc.buildRobot(type, dir);
+					if (type == RobotType.SCOUT)
+					{
+						rc.broadcast(CHANNEL_LAST_SCOUT_BUILD_TIME, round);
+					}
 					return true;
 				}
 			}
@@ -692,7 +706,7 @@ public strictfp class RobotPlayer {
 	
 	static void debug_printMacroStats()
 	{
-		System.out.println(gardeners + "/" + soldiers + "/" + trees);
+		System.out.println(gardeners + "/" + soldiers + "/" + scouts + "/" + trees);
 	}
 
 	// What to build after our build order is done
@@ -725,6 +739,13 @@ public strictfp class RobotPlayer {
 
 		if (isGardener)
 		{
+			if (round - lastScoutBuildTime > SCOUT_BUILD_INTERVAL)
+			{
+				System.out.println(round);
+				System.out.println(lastScoutBuildTime);
+				System.out.println(SCOUT_BUILD_INTERVAL);
+				attemptBuild(10, RobotType.SCOUT);
+			}
 			if (soldiers >= 2 && rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5))
 			{
 				rc.setIndicatorDot(myLocation, 0, 255, 0);
@@ -758,11 +779,6 @@ public strictfp class RobotPlayer {
 				attemptBuild(10, RobotType.SOLDIER);
 			}
 		}
-
-		if (trees >= 15)
-		{
-			//    		rc.broadcast(CHANNEL_ATTACK, 1); // kill 'em!
-		}
 	}
 
 	// Determines the next object to build in the build order. 
@@ -785,11 +801,16 @@ public strictfp class RobotPlayer {
 		long ret = 0;
 
 		// Scout code: Look for trees and shake 'em
-		if (isScout || isLumberjack)
+		switch (myType)
 		{
-			if (closestTree != null && (isScout || !freeRange)) {
+		case SCOUT:
+		case LUMBERJACK:
+		case ARCHON:
+			if (closestTree != null && !(isLumberjack && freeRange))
+			{
 				ret += closestTree.getLocation().distanceTo(loc) * 10000000;
 			}
+		default:;
 		}
 
 		if (isSoldier || isLumberjack)
@@ -1423,7 +1444,7 @@ public strictfp class RobotPlayer {
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets();
-		if (isGardener || isArchon)
+		if (isGardener)
 		{
 			nearbyTrees = rc.senseNearbyTrees(-1, myTeam);
 			neutralTrees = rc.senseNearbyTrees(-1, Team.NEUTRAL);
@@ -1568,6 +1589,7 @@ public strictfp class RobotPlayer {
 				{
 					dominationTable[i] = rc.readBroadcast(CHANNEL_HASH_TABLE + i);
 				}
+				skipToNextRound = true;
 			}
 			debug_highlightDomination();
 		}
@@ -1575,6 +1597,7 @@ public strictfp class RobotPlayer {
 		if (isGardener)
 		{
 			initHexes();
+			lastScoutBuildTime = rc.readBroadcast(CHANNEL_LAST_SCOUT_BUILD_TIME);
 		}
 		else if (isScout)
 		{
