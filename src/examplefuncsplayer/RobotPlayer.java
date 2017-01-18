@@ -1685,7 +1685,7 @@ public strictfp class RobotPlayer {
 		{
 			return true;
 		}
-		if (myID == 1)
+		if (myID == 1 && info.getType() == RobotType.SCOUT)
 		{
 			return true;
 		}
