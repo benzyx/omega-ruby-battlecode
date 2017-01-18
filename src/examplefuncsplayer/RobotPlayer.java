@@ -1675,10 +1675,19 @@ public strictfp class RobotPlayer {
 		switch (info.getType())
 		{
 		case ARCHON:
+		case GARDENER:
 		case LUMBERJACK:
 			return false;
 		default:
 			;
+		}
+		if (info.moveCount == 0 && info.attackCount == 0)
+		{
+			return true;
+		}
+		if (myID == 1)
+		{
+			return true;
 		}
 //		int theirLatestRound = round - (int) (theirSpawns[0].distanceTo(info.getLocation()) / info.type.strideRadius);
 //		if (theirLatestRound < spawnRound)
