@@ -236,6 +236,14 @@ public strictfp class RobotPlayer {
 						}
 					}
 				}
+				
+				if (dominated != null && myLocation.distanceTo(dominated.getLocation()) < myRadius + dominated.type.bodyRadius + GameConstants.BULLET_SPAWN_OFFSET)
+				{
+					if (rc.canFireSingleShot())
+					{
+						rc.fireSingleShot(myLocation.directionTo(dominated.getLocation()));
+					}
+				}
 
 				if (!rc.hasMoved())
 				{
@@ -313,7 +321,7 @@ public strictfp class RobotPlayer {
 				}
 				if (isScout)
 				{
-					if (dominated != null)
+					if (dominated != null && !rc.hasAttacked())
 					{
 						MapLocation them = dominated.getLocation();
 						Direction dir = myLocation.directionTo(them);
