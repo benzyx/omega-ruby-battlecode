@@ -214,8 +214,7 @@ public strictfp class RobotPlayer {
 //					debug_line(myLocation, currentTarget, 100, 0, 100);
 //				}
 
-				if (isScout){
-
+				if (isScout || isArchon) {
 					float minDist = 99999999;
 					closestTree = null;
 					for (TreeInfo info : nearbyTrees)
@@ -701,7 +700,7 @@ public strictfp class RobotPlayer {
 	
 	static void debug_printMacroStats()
 	{
-		System.out.println(gardeners + "/" + soldiers + "/" + trees);
+		System.out.println(gardeners + "/" + soldiers + "/" + scouts + "/" + trees);
 	}
 
 	// What to build after our build order is done
@@ -793,11 +792,16 @@ public strictfp class RobotPlayer {
 		long ret = 0;
 
 		// Scout code: Look for trees and shake 'em
-		if (isScout || isLumberjack)
+		switch (myType)
 		{
-			if (closestTree != null && (isScout || !freeRange)) {
+		case SCOUT:
+		case LUMBERJACK:
+		case ARCHON:
+			if (closestTree != null && !(isLumberjack && freeRange))
+			{
 				ret += closestTree.getLocation().distanceTo(loc) * 10000000;
 			}
+		default:;
 		}
 
 		if (isSoldier || isLumberjack)
