@@ -309,8 +309,6 @@ public strictfp class RobotPlayer {
 						float req;
 						switch (info.getType())
 						{
-						case SCOUT:
-							req = 2.3f;
 						case TANK:
 							req = 100;
 						default:
@@ -371,9 +369,7 @@ public strictfp class RobotPlayer {
 						}
 					}
 
-					if (!isScout || enemyType == RobotType.GARDENER || trees >= 4) {
-						smartShot(dir, enemyType, enemyDistance);
-					}
+					smartShot(dir, enemyType, enemyDistance);
 
 					// pink line showing who i wanna shoot
 					rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
@@ -410,10 +406,6 @@ public strictfp class RobotPlayer {
 			//if (Math.abs(myLocation.directionTo(info.getLocation()).degreesBetween(dir)) < 15) badTriad++;
 			//if (Math.abs(myLocation.directionTo(info.getLocation()).degreesBetween(dir)) < 30) badPentad++;
 		}
-		if (enemyType == RobotType.SCOUT && enemyDistance > 3.1f)
-		{
-			return;
-		}
 		if (rc.canFirePentadShot() && enemyDistance < 4.2f)
 		{
 			rc.firePentadShot(dir);
@@ -422,7 +414,7 @@ public strictfp class RobotPlayer {
 		{
 			rc.fireTriadShot(dir);
 		}
-		else if (rc.canFireSingleShot() && (!isScout || enemyType == RobotType.GARDENER))
+		else if (rc.canFireSingleShot())
 		{
 			rc.fireSingleShot(dir);
 		}
