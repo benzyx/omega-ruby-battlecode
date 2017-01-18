@@ -1589,7 +1589,7 @@ public strictfp class RobotPlayer {
 		{
 			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
 		}
-		if (rc.getRoundNum() >= 1500)
+		if (rc.getRoundNum() >= 2750 || (rc.getRoundNum() >= 2500 && rc.readBroadcast(CHANNEL_NUMBER_OF_ARCHONS) == 0))
 			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
 		if (myID == 0 && freeRange && isSoldier && nearbyEnemies.length == 0)
 		{
