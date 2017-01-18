@@ -19,9 +19,13 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_CALL_FOR_HELP = 13;
 	public static final int CHANNEL_CALL_FOR_HELP_ROUND = 15;
 	public static final int CHANNEL_HAPPY_PLACE = 16;
-	public static final int CHANNEL_GARDENER_LOCATIONS = 200;
-	public static final int CHANNEL_ATTACK = 999;
-	public static final int CHANNEL_FIRST_SOLDIER_BLOCKED = 998;
+	public static final int CHANNEL_ATTACK = 18;
+	public static final int CHANNEL_FIRST_SOLDIER_BLOCKED = 19;
+	public static final int CHANNEL_GARDENER_LOCATIONS = 20;
+	public static final int GARDENER_LOC_LIMIT = 10;
+	public static final int CHANNEL_HASH_TABLE_SIZE = 200;
+	public static final int CHANNEL_HASH_TABLE = 201;
+	public static final int HASH_TABLE_LEN = 1000 - CHANNEL_HASH_TABLE;
 
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -66,9 +70,13 @@ public strictfp class RobotPlayer {
 	static int hexLen;
 	static boolean roam; // for gardeners
 	static MapLocation reflection;
+	static RobotInfo reflectionTarget;
 	static int lastGardenerHitRound;
 	static boolean friendlyFireSpot;
 	static boolean hasBeenThreatened;
+	static int[] dominationTable;
+	static int spawnRound;
+	static RobotInfo dominated;
 
 	static int retHelper1, retHelper2;
 
@@ -95,6 +103,7 @@ public strictfp class RobotPlayer {
 		isSoldier = myType == RobotType.SOLDIER;
 		isTank = myType == RobotType.TANK;
 		isLumberjack = myType == RobotType.LUMBERJACK;
+		spawnRound = rc.getRoundNum();
 
 		myID = rc.readBroadcast(myNumberOfChannel());
 		rc.broadcast(myNumberOfChannel(), myID + 1);
@@ -195,10 +204,10 @@ public strictfp class RobotPlayer {
 					}        			
 				}
 
-				if (freeRange)
-				{
-					debug_line(myLocation, currentTarget, 100, 0, 100);
-				}
+//				if (freeRange)
+//				{
+//					debug_line(myLocation, currentTarget, 100, 0, 100);
+//				}
 
 				if (isScout){
 
@@ -296,7 +305,37 @@ public strictfp class RobotPlayer {
 						}
 					}
 				}
-				else if (isSoldier || isTank || isScout)
+				if (isScout)
+				{
+					if (dominated != null)
+					{
+						MapLocation them = dominated.getLocation();
+						Direction dir = myLocation.directionTo(them);
+						MapLocation a = myLocation.add(dir, myRadius + GameConstants.BULLET_SPAWN_OFFSET);
+						boolean ok = false;
+						if (a.distanceTo(them) < dominated.type.bodyRadius)
+						{
+							ok = true;
+						}
+						else
+						{
+							MapLocation b = them.subtract(dir, dominated.getType().bodyRadius);
+							float d = a.distanceTo(b);
+							if (d < 1 && rc.senseTreeAtLocation(a.add(dir, d / 2)) == null)
+							{
+								ok = true;
+							}
+						}
+						if (ok)
+						{
+							if (rc.canFireSingleShot())
+							{
+								rc.fireSingleShot(dir);
+							}
+						}
+					}
+				}
+				if (!rc.hasAttacked() && (isSoldier || isTank || isScout))
 				{
 					friendlyFireSpot = false;
 					long bestVal = 0;
@@ -309,6 +348,8 @@ public strictfp class RobotPlayer {
 						float req;
 						switch (info.getType())
 						{
+						case SCOUT:
+							req = 2.3f;
 						case TANK:
 							req = 100;
 						default:
@@ -369,7 +410,9 @@ public strictfp class RobotPlayer {
 						}
 					}
 
-					smartShot(dir, enemyType, enemyDistance);
+					if (!isScout || enemyType == RobotType.GARDENER || trees >= 4) {
+						smartShot(dir, enemyType, enemyDistance);
+					}
 
 					// pink line showing who i wanna shoot
 					rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
@@ -406,6 +449,10 @@ public strictfp class RobotPlayer {
 			//if (Math.abs(myLocation.directionTo(info.getLocation()).degreesBetween(dir)) < 15) badTriad++;
 			//if (Math.abs(myLocation.directionTo(info.getLocation()).degreesBetween(dir)) < 30) badPentad++;
 		}
+		if (enemyType == RobotType.SCOUT && enemyDistance > 3.1f)
+		{
+			return;
+		}
 		if (rc.canFirePentadShot() && enemyDistance < 4.2f)
 		{
 			rc.firePentadShot(dir);
@@ -414,7 +461,7 @@ public strictfp class RobotPlayer {
 		{
 			rc.fireTriadShot(dir);
 		}
-		else if (rc.canFireSingleShot())
+		else if (rc.canFireSingleShot() && (!isScout || enemyType == RobotType.GARDENER))
 		{
 			rc.fireSingleShot(dir);
 		}
@@ -535,7 +582,15 @@ public strictfp class RobotPlayer {
 			}
 			for (int i = 0; i < iter; i++)
 			{
-				Direction dir = randomDirection();
+				Direction dir;
+				if (i == 0)
+				{
+					dir = myLocation.directionTo(theirSpawns[0]);
+				}
+				else
+				{
+					dir = randomDirection();
+				}
 				if (rc.canBuildRobot(type, dir)){
 					rc.buildRobot(type, dir);
 					return true;
@@ -718,8 +773,8 @@ public strictfp class RobotPlayer {
 				RobotType.SCOUT,
 				RobotType.ARCHON,
 				RobotType.SOLDIER,
-				RobotType.SCOUT,
 				RobotType.ARCHON,
+				RobotType.SCOUT,
 				null
 			};
 		return buildOrder[index];
@@ -811,20 +866,36 @@ public strictfp class RobotPlayer {
 				for (RobotInfo info : nearbyEnemies)
 				{
 					float d = loc.distanceTo(info.getLocation());
-					switch (info.getType())
+					if (info == dominated)
 					{
-					case GARDENER:
-						ret += 1000 * d * d;
-						break;
-					case SOLDIER:
-					case TANK:
-					case LUMBERJACK:
-					case SCOUT:
-						if (round - lastGardenerHitRound < 80)
+						ret += 5000 * d;
+						if (d < myRadius + info.type.bodyRadius + 1)
 						{
-							ret -= 50000 * Math.sqrt(d);    						
+							ret += 5000;
 						}
-					default:
+					}
+					else
+					{
+						switch (info.getType())
+						{
+						case GARDENER:
+							ret += 1000 * d * d;
+							break;
+						case SOLDIER:
+						case TANK:
+						case LUMBERJACK:
+							if (round - lastGardenerHitRound < 80)
+							{
+								ret -= 50000 * Math.sqrt(d) * (1 - (round - lastGardenerHitRound) / 80f);
+							}
+							break;
+						case SCOUT:
+							if (round - lastGardenerHitRound < 80)
+							{
+								ret -= 2000 * Math.sqrt(d) * (1 - (round - lastGardenerHitRound) / 80f);
+							}
+						default:
+						}
 					}
 				}
 			}
@@ -932,58 +1003,106 @@ public strictfp class RobotPlayer {
 		{
 			ret += 20000 * loc.distanceTo(reflection);
 		}
-		else if (!bruteDefence && !isArchon)
+		
+		if (!bruteDefence && !isArchon)
+		{
+			ret += bulletDodgeWeight(loc);
+		}
+
+		return ret;
+	}
+	
+	private static final float BULLET_HIT_WEIGHT = 200000000;
+	private static final float HALFPI = 1.5707963267948966192313216916398f;
+
+	private static float bulletDodgeWeight(MapLocation loc)
+	{
+		float ret = 0;
+		if (isScout)
 		{
 			for (int i = 0; i < importantBulletIndex; i++)
 			{
 				BulletInfo bullet = nearbyBullets[i];
-				// Get relevant bullet information
-				Direction propagationDirection = bullet.dir;
-				MapLocation bulletLocation = bullet.location;
-
-				// Calculate bullet relations to this robot
-				Direction directionToRobot = bulletLocation.directionTo(loc);
-				float distToRobot = bulletLocation.distanceTo(loc);
-
-				if (distToRobot < myRadius)
+				MapLocation a = bullet.location;
+				if (reflection != null && a.distanceTo(reflectionTarget.location) < a.distanceTo(loc))
 				{
-					ret += 200000000;
+					continue;
+				}
+				Direction dir = bullet.dir;
+				MapLocation b = a.add(dir, bullet.speed);
+				Direction toRobot = a.directionTo(loc);
+				
+				float angle = Math.abs(dir.radiansBetween(toRobot)); 
+				float d;
+				if (angle > HALFPI)
+				{
+					d = a.distanceTo(loc);
+				}
+				else if (Math.abs(dir.radiansBetween(b.directionTo(loc))) < HALFPI)
+				{
+					d = b.distanceTo(loc);
 				}
 				else
 				{
-					float theta = propagationDirection.radiansBetween(directionToRobot);
-
-					if (theta < Math.PI / 2)
-					{
-						// distToRobot is our hypotenuse, theta is our angle, and we want to know this length of the opposite leg.
-						// This is the distance of a line that goes from myLocation and intersects perpendicularly with propagationDirection.
-						// This corresponds to the smallest radius circle centered at our location that would intersect with the
-						// line that is the path of the bullet.
-						float perpendicularDist = (float)Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
-						if (perpendicularDist < myRadius)
-						{
-							float alongDist = (float)Math.abs(distToRobot * Math.cos(theta)); // soh cah toa :)
-							int roundsToHit = (int) (alongDist / bullet.speed);
-							if (roundsToHit == 0)
-							{
-								ret += 200000000;
-							}
-							else
-							{
-								ret += 200000000 / distToRobot;
-							}
-						}
-					}
+					d = (float) (a.distanceTo(loc) * Math.sin(angle));
+				}
+				if (d < myRadius)
+				{
+					ret += BULLET_HIT_WEIGHT;
 				}
 			}
 		}
-
+		else
+		{
+	    	for (int i = 0; i < importantBulletIndex; i++)
+	    	{
+	    		BulletInfo bullet = nearbyBullets[i];
+	            // Get relevant bullet information
+	            Direction propagationDirection = bullet.dir;
+	            MapLocation bulletLocation = bullet.location;
+	
+	            // Calculate bullet relations to this robot
+	            Direction directionToRobot = bulletLocation.directionTo(loc);
+	            float distToRobot = bulletLocation.distanceTo(loc);
+	            
+	            if (distToRobot < myRadius)
+	            {
+	            	ret += BULLET_HIT_WEIGHT;
+	            }
+	            else
+	            {
+		            float theta = propagationDirection.radiansBetween(directionToRobot);
+		
+		            if (theta < Math.PI / 2)
+		            {
+			            // distToRobot is our hypotenuse, theta is our angle, and we want to know this length of the opposite leg.
+			            // This is the distance of a line that goes from myLocation and intersects perpendicularly with propagationDirection.
+			            // This corresponds to the smallest radius circle centered at our location that would intersect with the
+			            // line that is the path of the bullet.
+			            float perpendicularDist = (float)Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
+			            if (perpendicularDist < myRadius)
+			            {
+				            float alongDist = (float)Math.abs(distToRobot * Math.cos(theta)); // soh cah toa :)
+				            int roundsToHit = (int) (alongDist / bullet.speed);
+				            if (roundsToHit == 0)
+				            {
+				            	ret += BULLET_HIT_WEIGHT;
+				            }
+				            else
+				            {
+				            	ret += BULLET_HIT_WEIGHT / distToRobot;
+				            }
+			            }
+		            }
+	            }
+	    	}
+		}
 		return ret;
 	}
 
 	static int importantBulletIndex;
 
-	public static void preprocessBullets()
+	public static void preprocessBullets() throws GameActionException
 	{
 		importantBulletIndex = nearbyBullets.length;
 		for (int i = 0; i < importantBulletIndex; i++)
@@ -1031,7 +1150,7 @@ public strictfp class RobotPlayer {
 				--i;
 			}
 		}
-		int lim = 5;
+		int lim = 10;
 		if (importantBulletIndex > lim)
 		{
 			for (int i = 0; i < lim; i++)
@@ -1053,8 +1172,18 @@ public strictfp class RobotPlayer {
 			}
 			importantBulletIndex = lim;
 		}
+		debug_highlightImportantBullets();
 	}
 
+	private static void debug_highlightImportantBullets() throws GameActionException
+	{
+		for (int i = 0; i < importantBulletIndex; i++)
+		{
+			BulletInfo bullet = nearbyBullets[i];
+			rc.setIndicatorLine(bullet.location, bullet.location.add(bullet.dir, 0.3f), 255, 255, 0);
+		}
+	}
+	
 	public static float getIdealDistanceMultiplier(RobotType t)
 	{
 		switch (t) {
@@ -1153,11 +1282,12 @@ public strictfp class RobotPlayer {
 		{
 			after += 284 * (nearbyEnemies.length + 1);
 		}
+		System.out.println(Clock.getBytecodesLeft());
 		while (Clock.getBytecodesLeft() - longest > after && iterations < 100)
 		{
 			int t1 = Clock.getBytecodesLeft();
 			float add;
-			if (longest > 600 && nearbyBullets.length >= 5)
+			if (longest > 500 && nearbyBullets.length >= 5)
 			{
 				add = myStride;
 			}
@@ -1182,6 +1312,47 @@ public strictfp class RobotPlayer {
 				else
 				{
 					cand = myLocation;
+				}
+			}
+			else if (iterations == 1 && nearbyBullets.length > 0)
+			{
+				cand = myLocation.add(nearbyBullets[0].dir, myStride);
+			}
+			else if (dominated != null)
+			{
+				MapLocation them = dominated.getLocation();
+				switch (iterations)
+				{
+				case 4:
+					MapLocation ncand = them.add(them.directionTo(myLocation), dominated.type.bodyRadius + myRadius + 0.001f);
+					if (myLocation.distanceTo(ncand) < myStride)
+					{
+						cand = ncand;
+					}
+					else
+					{
+						cand = myLocation.add(myLocation.directionTo(them), myStride);
+					}
+					break;
+				case 2:
+				case 3:
+					float a = myStride - 0.001f;
+					float b = myRadius + dominated.type.bodyRadius + 0.001f;
+					float c = myLocation.distanceTo(dominated.getLocation());
+					float q = (c * c + a * a - b * b) / (2 * c * a);
+					if (Math.abs(q) <= 1)
+					{
+						float angle = (float) Math.acos(q);
+						if (iterations == 2)
+						{
+							cand = myLocation.add(myLocation.directionTo(dominated.getLocation()).rotateLeftRads(angle), a);
+						}
+						else
+						{
+							cand = myLocation.add(myLocation.directionTo(dominated.getLocation()).rotateLeftRads(-angle), a);							
+						}
+					}
+					break;
 				}
 			}
 			if (rc.canMove(cand))
@@ -1231,7 +1402,7 @@ public strictfp class RobotPlayer {
 	
 	static void debug_printAfterMovementLoop(int iterations, int longest)
 	{
-		System.out.println(iterations + " iterations; the longest one cost " + longest);
+		System.out.println(iterations + " iterations; the longest one cost " + longest + "; " + nearbyBullets.length + "/" + importantBulletIndex);
 	}
 
 	public static void onRoundEnd() throws GameActionException
@@ -1271,8 +1442,8 @@ public strictfp class RobotPlayer {
 		controlRadius = rc.readBroadcast(CHANNEL_CONTROL_RADIUS) / 1000f;
 		helpLocation = readPoint(CHANNEL_CALL_FOR_HELP);
 		helpRound = rc.readBroadcast(CHANNEL_CALL_FOR_HELP_ROUND);
-		oldGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 100 * (round % 2);
-		newGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 100 * ((round + 1) % 2);
+		oldGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 50 * (round % 2);
+		newGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 50 * ((round + 1) % 2);
 		aggro = rc.readBroadcast(CHANNEL_ATTACK) != 0;
 		happyPlace = readPoint(CHANNEL_HAPPY_PLACE);
 
@@ -1303,7 +1474,7 @@ public strictfp class RobotPlayer {
 		if (isGardener)
 		{
 			gardenerLocsLen = rc.readBroadcast(oldGardenerLocChannel);
-			if (gardenerLocsLen <= 10)
+			if (gardenerLocsLen <= GARDENER_LOC_LIMIT)
 			{
 				for (int i = 0; i < gardenerLocsLen; i++)
 				{
@@ -1322,8 +1493,11 @@ public strictfp class RobotPlayer {
 				}
 			}
 			int clen = rc.readBroadcast(newGardenerLocChannel);
-			writePoint(newGardenerLocChannel + 1 + clen * 2, myLocation);
-			rc.broadcast(newGardenerLocChannel, clen + 1);
+			if (clen <= GARDENER_LOC_LIMIT)
+			{
+				writePoint(newGardenerLocChannel + 1 + clen * 2, myLocation);
+				rc.broadcast(newGardenerLocChannel, clen + 1);
+			}
 		}
 
 		threatened = false;
@@ -1373,13 +1547,38 @@ public strictfp class RobotPlayer {
 		{
 			rc.setIndicatorDot(myLocation, 0, 0, 0);
 		}
+
+		int a = Clock.getBytecodesLeft();
+		int hashTableLen = rc.readBroadcast(CHANNEL_HASH_TABLE_SIZE);
+		if (hashTableLen < 400)
+		{
+			for (RobotInfo enemy : nearbyEnemies)
+			{
+				hashTableInsert(enemy.ID);
+			}
+		}
+		debug_printTimeTaken("Hash table update", a);
+		
+		if (isScout)
+		{
+			if (dominationTable == null)
+			{
+				dominationTable = new int[HASH_TABLE_LEN];
+				for (int i = 0; i < HASH_TABLE_LEN; i++)
+				{
+					dominationTable[i] = rc.readBroadcast(CHANNEL_HASH_TABLE + i);
+				}
+			}
+			debug_highlightDomination();
+		}
+		
 		if (isGardener)
 		{
 			initHexes();
 		}
 		else if (isScout)
 		{
-			findReflection();
+			findEasyTargets();
 			trees = rc.getTreeCount();
 		}
 		if (rc.getRoundNum() + 2 >= rc.getRoundLimit() || rc.getTeamVictoryPoints() + rc.getTeamBullets() / 10 > 1000)
@@ -1394,6 +1593,118 @@ public strictfp class RobotPlayer {
 				freeRange = false;
 			}
 		}
+		if (isArchon)
+		{
+			hashTableLen = 0;
+			for (int i = 0; i < HASH_TABLE_LEN; i++)
+			{
+				if (rc.readBroadcast(CHANNEL_HASH_TABLE + i) != 0)
+				{
+					++hashTableLen;
+				}
+			}
+			rc.broadcast(CHANNEL_HASH_TABLE_SIZE, hashTableLen);
+		}
+	}
+	
+	static void debug_highlightDomination() throws GameActionException
+	{
+		for (RobotInfo info : nearbyEnemies)
+		{
+			if (dominates(info))
+			{
+				rc.setIndicatorLine(myLocation, info.getLocation(), 100, 0, 0);
+				rc.setIndicatorDot(info.getLocation(), 100, 0, 0);
+			}
+		}
+	}
+	static void hashTableInsert(int x) throws GameActionException
+	{
+		int p = x;
+		for (;;)
+		{
+			p %= HASH_TABLE_LEN;
+			int c = p + CHANNEL_HASH_TABLE;
+			int at = rc.readBroadcast(c);
+			if (at == 0)
+			{
+				rc.broadcast(c, x);
+				return;
+			}
+			else if (at == x)
+			{
+				return;
+			}
+			else
+			{
+				++p;
+			}
+		}
+	}
+	static void insertToLocalTable(int x)
+	{
+		int p = x;
+		for (;;)
+		{
+			p %= HASH_TABLE_LEN;
+			int at = dominationTable[p];
+			if (at == 0)
+			{
+				dominationTable[p] = x;
+				return;
+			}
+			else if (at == x)
+			{
+				return;
+			}
+			else
+			{
+				++p;
+			}
+		}
+	}
+	
+	static boolean dominates(RobotInfo info)
+	{
+		switch (info.getType())
+		{
+		case ARCHON:
+		case LUMBERJACK:
+		case TANK:
+			return false;
+		default:
+			;
+		}
+//		int theirLatestRound = round - (int) (theirSpawns[0].distanceTo(info.getLocation()) / info.type.strideRadius);
+//		if (theirLatestRound < spawnRound)
+//		{
+//			insertToLocalTable(info.ID);
+//			return true;
+//		}
+		int id = info.ID;
+		int x = id;
+		for (;;)
+		{
+			x %= HASH_TABLE_LEN;
+			int at = dominationTable[x];
+			if (at == id)
+			{
+				return true;
+			}
+			else if (at == 0)
+			{
+				return false;
+			}
+			else
+			{
+				++x;
+			}
+		}
+	}
+	
+	static void debug_printTimeTaken(String cause, int original)
+	{
+		System.out.println(cause + " took " + (original - Clock.getBytecodesLeft()) + " bytecodes");
 	}
 
 	static boolean checkBlocked()
@@ -1411,9 +1722,9 @@ public strictfp class RobotPlayer {
 		}
 		return true;
 	}
-	static void findReflection() throws GameActionException
+	
+	static boolean findReflection() throws GameActionException
 	{
-		reflection = null;
 		RobotInfo gardener = null;
 		RobotInfo shooter = null;
 		for (int i = nearbyEnemies.length - 1; i >= 0; i--)
@@ -1438,7 +1749,7 @@ public strictfp class RobotPlayer {
 				}
 				else
 				{
-					return;
+					return false;
 				}
 			}
 		}
@@ -1460,14 +1771,50 @@ public strictfp class RobotPlayer {
 				if (canGoTo(c))
 				{
 					reflection = c;
+					reflectionTarget = gardener;
 					debug_line(a, c, 255, 255, 0);
 					debug_line(myLocation, c, 127, 127, 0);
-					return;
+					return true;
 				}
 			}
 		}
+		return false;
+	}
+	
+	static void findEasyTargets() throws GameActionException
+	{
+		reflection = null;
+		dominated = null;
+		reflectionTarget = null;
+		if (findReflection())
+		{
+			return;
+		}
+		// We couldn't find a reflection so now we look for domination
+		RobotInfo best = null;
+		float minDist = 99999999;
+		for (RobotInfo info : nearbyEnemies)
+		{
+			float d = myLocation.distanceTo(info.getLocation());
+			if (d < minDist && dominates(info))
+			{
+				best = info;
+				minDist = d;
+			}
+		}
+		System.out.println(best);
+		System.out.println(minDist);
+		dominated = best;
+		debug_highlightDominated();
 	}
 
+	private static void debug_highlightDominated() throws GameActionException
+	{
+		if (dominated != null)
+		{
+			rc.setIndicatorLine(myLocation, dominated.getLocation(), 200, 100, 0);
+		}
+	}
 	static void debug_line(MapLocation p1, MapLocation p2, int r, int g, int b) throws GameActionException
 	{
 		rc.setIndicatorLine(p1, p2, r, g, b);
