@@ -339,7 +339,6 @@ public strictfp class RobotPlayer {
 							{
 								ok = true;
 							}
-							System.out.println("ok = " + ok + "; " + a.distanceTo(b) + "; " + myLocation.distanceTo(them));
 						}
 						if (ok)
 						{
@@ -1291,7 +1290,6 @@ public strictfp class RobotPlayer {
 		{
 			after += 284 * (nearbyEnemies.length + 1);
 		}
-		System.out.println(Clock.getBytecodesLeft());
 		while (Clock.getBytecodesLeft() - longest > after && iterations < 100)
 		{
 			int t1 = Clock.getBytecodesLeft();
@@ -1342,7 +1340,6 @@ public strictfp class RobotPlayer {
 					{
 						cand = myLocation.add(myLocation.directionTo(them), myStride);
 					}
-					rc.setIndicatorLine(myLocation, cand, 0, 0, 255);
 					break;
 				case 2:
 				case 3:
@@ -1405,7 +1402,6 @@ public strictfp class RobotPlayer {
 			int taken = t1 - Clock.getBytecodesLeft();
 			longest = Math.max(longest, taken);
 		}
-//		System.out.println(iterations + " iterations: " + bestVal + " (" + nearbyBullets.length + "/" + importantBulletIndex + ": " + longest + " bytecodes)");
 		debug_printAfterMovementLoop(iterations, longest);
 		if (best != null)
 			opti = best;
@@ -1831,8 +1827,6 @@ public strictfp class RobotPlayer {
 				minDist = d;
 			}
 		}
-		System.out.println(best);
-		System.out.println(minDist);
 		dominated = best;
 		debug_highlightDominated();
 	}
