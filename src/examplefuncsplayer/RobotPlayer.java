@@ -748,25 +748,6 @@ public strictfp class RobotPlayer {
 			{
 				attemptBuild(10, RobotType.SCOUT);
 			}
-			if (aggro && rc.getTeamBullets() > 300)
-			{
-				if (rand() < 50)
-				{
-					attemptBuild(10, RobotType.LUMBERJACK);
-				}
-				else
-				{
-					attemptBuild(10, RobotType.SOLDIER);
-				}
-			}
-			//    		if (neutralTrees.length >= 10 && lumberjacks < trees + 3)
-			//    		{
-			//    			attemptBuild(10, RobotType.LUMBERJACK);
-			//    		}
-			//    		if (lumberjacks < 2 && rc.getTeamBullets() > 150)
-			//    		{
-			//    			attemptBuild(10, RobotType.LUMBERJACK);
-			//    		}
 			if (soldiers < trees / 2 || soldiers < 2)
 			{
 				attemptBuild(10, RobotType.SOLDIER);
