@@ -1021,29 +1021,14 @@ public strictfp class RobotPlayer {
 				}
 				else
 				{
-					float theta = propagationDirection.radiansBetween(directionToRobot);
-
-					if (theta < Math.PI / 2)
-					{
-						// distToRobot is our hypotenuse, theta is our angle, and we want to know this length of the opposite leg.
-						// This is the distance of a line that goes from myLocation and intersects perpendicularly with propagationDirection.
-						// This corresponds to the smallest radius circle centered at our location that would intersect with the
-						// line that is the path of the bullet.
-						float perpendicularDist = (float)Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
-						if (perpendicularDist < myRadius)
-						{
-							float alongDist = (float)Math.abs(distToRobot * Math.cos(theta)); // soh cah toa :)
-							int roundsToHit = (int) (alongDist / bullet.speed);
-							if (bulletLocation.add(propagationDirection, bullet.speed).distanceTo(loc) <= myRadius || roundsToHit == 0)
-							{
-								ret += 200000000;
-							}
-							else if (!isScout)
-							{
-								ret += 200000000 / distToRobot;
-							}
-						}
-					}
+					//(v1^2 + v2^2) t^2 + (2v2y1 + 2v1x1 - 2v1x2 - 2v2x2) t + (x1^2 + y1^2 - 2x1x2 - 2y1y2 - r^2)
+					float spd = bullet.speed;
+					float a = spd * spd;
+					float b = 2 * (
+							propagationDirection.getDeltaY(bulletLocation.y) +
+							propagationDirection.getDeltaX(bulletLocation.x) +
+							-propagationDirection.getDeltaX(loc.y) +
+							-propagationDirection.getDelta()
 				}
 			}
 		}
