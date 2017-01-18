@@ -25,6 +25,7 @@ public strictfp class RobotPlayer {
 	public static final int GARDENER_LOC_LIMIT = 10;
 	// Channels 20-120 reserved for gardeners
 	public static final int CHANNEL_LAST_SCOUT_BUILD_TIME = 121;
+	public static final int CHANNEL_CHOPPABLE_TREE = 122;
 	public static final int SCOUT_BUILD_INTERVAL = 80;
 	public static final int CHANNEL_HASH_TABLE_SIZE = 200;
 	public static final int CHANNEL_HASH_TABLE = 201;
@@ -83,6 +84,7 @@ public strictfp class RobotPlayer {
 	static RobotInfo dominated;
 	static int lastScoutBuildTime;
 	static boolean skipToNextRound;
+	static MapLocation choppableTree;
 
 	static int retHelper1, retHelper2;
 
@@ -139,6 +141,7 @@ public strictfp class RobotPlayer {
 				MapLocation rally = us;
 				writePoint(CHANNEL_RALLY_POINT, rally);
 				writePoint(CHANNEL_HAPPY_PLACE, them);
+				writePoint(CHANNEL_CHOPPABLE_TREE, new MapLocation(-1, -1));
 				rc.broadcast(CHANNEL_MAP_TOP, 100000);
 				rc.broadcast(CHANNEL_MAP_LEFT, 100000);
 				rc.broadcast(CHANNEL_MAP_RIGHT, -100000);
@@ -789,6 +792,13 @@ public strictfp class RobotPlayer {
 
 		if (isSoldier || isLumberjack)
 		{
+			if (isLumberjack && choppableTree != null) 
+			{
+				rc.setIndicatorDot(choppableTree, 127, 0, 255);
+				ret += 5000000* loc.distanceTo(choppableTree);
+				if (myLocation.distanceTo(choppableTree) < 7)
+					ret += 10000001 * loc.distanceTo(choppableTree);
+			}
 			if (!bruteDefence)
 			{
 				float d = loc.distanceTo(destination);
@@ -1432,6 +1442,10 @@ public strictfp class RobotPlayer {
 		{
 			nearbyTrees = rc.senseNearbyTrees();
 		}
+		for (TreeInfo ti : nearbyTrees)
+			if (ti.getContainedRobot() != null) {
+				writePoint(CHANNEL_CHOPPABLE_TREE, ti.getLocation());
+			}
 		leftBound = rc.readBroadcast(CHANNEL_MAP_LEFT);
 		rightBound = rc.readBroadcast(CHANNEL_MAP_RIGHT);
 		bottomBound = rc.readBroadcast(CHANNEL_MAP_BOTTOM);
@@ -1585,11 +1599,22 @@ public strictfp class RobotPlayer {
 			findEasyTargets();
 			trees = rc.getTreeCount();
 		}
+		else if (isLumberjack)
+		{
+			if (choppableTree != null && rc.canSenseLocation(choppableTree) && !rc.isLocationOccupiedByTree(choppableTree)) {
+				rc.setIndicatorDot(choppableTree, 255, 0, 0);
+				choppableTree = null;
+			}
+
+			MapLocation tree = readPoint(CHANNEL_CHOPPABLE_TREE);
+			if (tree.x >= 0 && (choppableTree == null || myLocation.distanceTo(tree) < myLocation.distanceTo(choppableTree)))
+				choppableTree = tree;
+		}
 		if (rc.getRoundNum() + 2 >= rc.getRoundLimit() || rc.getTeamVictoryPoints() + rc.getTeamBullets() / 10 > 1000)
 		{
 			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
 		}
-		if (rc.getRoundNum() >= 2750 || (rc.getRoundNum() >= 2500 && rc.readBroadcast(CHANNEL_NUMBER_OF_ARCHONS) == 0))
+		if (rc.getRoundNum() >= 2750 || (rc.getRoundNum() >= 2500 && rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_ARCHONS)) == 0))
 			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
 		if (myID == 0 && freeRange && isSoldier && nearbyEnemies.length == 0)
 		{
