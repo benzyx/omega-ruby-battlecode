@@ -1376,6 +1376,10 @@ public strictfp class RobotPlayer {
 					break;
 				}
 			}
+			else if (iterations == 2 && currentTarget != null)
+			{
+				cand = myLocation.add(myLocation.directionTo(currentTarget), myStride);
+			}
 			if (rc.canMove(cand))
 			{
 				long b = badness(cand);
