@@ -1629,11 +1629,16 @@ public strictfp class RobotPlayer {
 	
 	static boolean dominates(RobotInfo info)
 	{
-		if (info.getType() == RobotType.ARCHON)
+		switch (info.getType())
 		{
+		case ARCHON:
+		case LUMBERJACK:
+		case TANK:
 			return false;
+		default:
+			;
 		}
-		int theirLatestRound = round - (int) (theirSpawns[0].distanceTo(info.getLocation()) / info.type.strideRadius);
+//		int theirLatestRound = round - (int) (theirSpawns[0].distanceTo(info.getLocation()) / info.type.strideRadius);
 //		if (theirLatestRound < spawnRound)
 //		{
 //			insertToLocalTable(info.ID);
