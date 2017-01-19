@@ -1600,9 +1600,39 @@ public strictfp class RobotPlayer {
 				}
 			}
 			rc.broadcast(CHANNEL_HASH_TABLE_SIZE, hashTableLen);
+
+			if (myID == 0)
+			{
+				debug_highlightGrid();
+			}
 		}
 	}
 	
+	private static void debug_highlightGrid() throws GameActionException
+	{
+		int l = (int) myLocation.x - 100;
+		int r = l + 200;
+		int t = (int) myLocation.y - 100;
+		int b = t + 200;
+//		for (int i = l; i <= r; i++)
+//		{
+//			rc.setIndicatorLine(new MapLocation(i, t), new MapLocation(i, b), 0, 0, 0);
+//		}
+//		for (int j = t; j <= b; j++)
+//		{
+//			rc.setIndicatorLine(new MapLocation(l, j), new MapLocation(r, j), 0, 0, 0);
+//		}
+		for (int i = l; i <= r; i++)
+		{
+			for (int j = t; j <= b; j++)
+			{
+				rc.setIndicatorLine(
+						new MapLocation(i - .1f, j - .1f),
+						new MapLocation(i + .1f, j + .1f),
+						0, 0, 0);
+			}
+		}
+	}
 	static void hashTableInsert(int x) throws GameActionException
 	{
 		int p = x;
