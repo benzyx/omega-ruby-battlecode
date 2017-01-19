@@ -26,6 +26,7 @@ public strictfp class RobotPlayer {
 	// Channels 20-120 reserved for gardeners
 	public static final int CHANNEL_LAST_SCOUT_BUILD_TIME = 121;
 	public static final int CHANNEL_CHOPPABLE_TREE = 122;
+	public static final int CHANNEL_INITIAL_ARCHON_BLOCKED = 124;
 	public static final int SCOUT_BUILD_INTERVAL = 80;
 	public static final int CHANNEL_HASH_TABLE_SIZE = 200;
 	public static final int CHANNEL_HASH_TABLE = 201;
@@ -132,6 +133,7 @@ public strictfp class RobotPlayer {
 		sortByDistanceFromMe(theirSpawns);
 		if (myType == RobotType.ARCHON)
 		{
+			
 			if (myID == 0)
 			{
 				MapLocation them = theirSpawns[0];
@@ -146,6 +148,7 @@ public strictfp class RobotPlayer {
 				rc.broadcast(CHANNEL_MAP_LEFT, 100000);
 				rc.broadcast(CHANNEL_MAP_RIGHT, -100000);
 				rc.broadcast(CHANNEL_MAP_BOTTOM, -100000);
+				rc.broadcast(CHANNEL_INITIAL_ARCHON_BLOCKED, 0);
 			}
 			else
 			{
@@ -724,7 +727,7 @@ public strictfp class RobotPlayer {
 		boolean wantGardener = false;
 		if (gardeners < trees / 5 + 1 || (rc.getTeamBullets() > 350 && gardeners < trees / 2)) // indicates some kind of blockage
 		{
-			if (gardeners > 0 || myID == 0)
+			if (gardeners > 0 || myID == 0 || rc.readBroadcast(CHANNEL_INITIAL_ARCHON_BLOCKED) == 1)
 			{
 				wantGardener = true;
 			}
@@ -740,7 +743,8 @@ public strictfp class RobotPlayer {
 			if (wantGardener)
 			{
 				rc.setIndicatorDot(myLocation, 0, 0, 0);
-				attemptBuild(10, RobotType.GARDENER);
+				if (!attemptBuild(10, RobotType.GARDENER) && gardeners == 0)
+					rc.broadcast(CHANNEL_INITIAL_ARCHON_BLOCKED, 1);
 			}
 		}
 
