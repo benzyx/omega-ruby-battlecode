@@ -802,7 +802,6 @@ public strictfp class RobotPlayer {
 		{
 			if (isLumberjack && choppableTree != null) 
 			{
-				rc.setIndicatorDot(choppableTree, 127, 0, 255);
 				ret += 5000000* loc.distanceTo(choppableTree);
 				if (myLocation.distanceTo(choppableTree) < 7)
 					ret += 10000001 * loc.distanceTo(choppableTree);
