@@ -1035,84 +1035,36 @@ public strictfp class RobotPlayer {
 	private static float bulletDodgeWeight(MapLocation loc)
 	{
 		float ret = 0;
-		if (isScout)
+		for (int i = 0; i < importantBulletIndex; i++)
 		{
-			for (int i = 0; i < importantBulletIndex; i++)
+			BulletInfo bullet = nearbyBullets[i];
+			MapLocation a = bullet.location;
+			if (reflection != null && a.distanceTo(reflectionTarget.location) < a.distanceTo(loc))
 			{
-				BulletInfo bullet = nearbyBullets[i];
-				MapLocation a = bullet.location;
-				if (reflection != null && a.distanceTo(reflectionTarget.location) < a.distanceTo(loc))
-				{
-					continue;
-				}
-				Direction dir = bullet.dir;
-				MapLocation b = a.add(dir, bullet.speed);
-				Direction toRobot = a.directionTo(loc);
-				
-				float angle = Math.abs(dir.radiansBetween(toRobot)); 
-				float d;
-				if (angle > HALFPI)
-				{
-					d = a.distanceTo(loc);
-				}
-				else if (Math.abs(dir.radiansBetween(b.directionTo(loc))) < HALFPI)
-				{
-					d = b.distanceTo(loc);
-				}
-				else
-				{
-					d = (float) (a.distanceTo(loc) * Math.sin(angle));
-				}
-				if (d < myRadius)
-				{
-					ret += BULLET_HIT_WEIGHT;
-				}
+				continue;
 			}
-		}
-		else
-		{
-	    	for (int i = 0; i < importantBulletIndex; i++)
-	    	{
-	    		BulletInfo bullet = nearbyBullets[i];
-	            // Get relevant bullet information
-	            Direction propagationDirection = bullet.dir;
-	            MapLocation bulletLocation = bullet.location;
-	
-	            // Calculate bullet relations to this robot
-	            Direction directionToRobot = bulletLocation.directionTo(loc);
-	            float distToRobot = bulletLocation.distanceTo(loc);
-	            
-	            if (distToRobot < myRadius)
-	            {
-	            	ret += BULLET_HIT_WEIGHT;
-	            }
-	            else
-	            {
-		            float theta = propagationDirection.radiansBetween(directionToRobot);
-		
-		            if (theta < Math.PI / 2)
-		            {
-			            // distToRobot is our hypotenuse, theta is our angle, and we want to know this length of the opposite leg.
-			            // This is the distance of a line that goes from myLocation and intersects perpendicularly with propagationDirection.
-			            // This corresponds to the smallest radius circle centered at our location that would intersect with the
-			            // line that is the path of the bullet.
-			            float perpendicularDist = (float)Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
-			            if (perpendicularDist < myRadius)
-			            {
-				            float alongDist = (float)Math.abs(distToRobot * Math.cos(theta)); // soh cah toa :)
-				            int roundsToHit = (int) (alongDist / bullet.speed);
-				            if (roundsToHit == 0)
-				            {
-				            	ret += BULLET_HIT_WEIGHT;
-				            }
-				            else
-				            {
-				            	ret += BULLET_HIT_WEIGHT / distToRobot;
-				            }
-			            }
-		            }
-	            }
-	    	}
+			Direction dir = bullet.dir;
+			MapLocation b = a.add(dir, bullet.speed);
+			Direction toRobot = a.directionTo(loc);
+			
+			float angle = Math.abs(dir.radiansBetween(toRobot)); 
+			float d;
+			if (angle > HALFPI)
+			{
+				d = a.distanceTo(loc);
+			}
+			else if (Math.abs(dir.radiansBetween(b.directionTo(loc))) < HALFPI)
+			{
+				d = b.distanceTo(loc);
+			}
+			else
+			{
+				d = (float) (a.distanceTo(loc) * Math.sin(angle));
+			}
+			if (d < myRadius)
+			{
+				ret += BULLET_HIT_WEIGHT;
+			}
 		}
 		return ret;
 	}
