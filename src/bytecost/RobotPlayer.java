@@ -130,6 +130,14 @@ public strictfp class RobotPlayer {
 		measureCost(f, "hash 100");
 		f = () -> a.hashCode();
 		measureCost(f, "hash int 1000");
+
+		final String x = "abc";
+		final String y = "dce";
+		measureCost(() -> "aaaaaaaaaa".replace("a", "aa"), "String replacement");
+		f = () -> x.concat(y);
+		measureCost(f, "String concatenation");
+		f = () -> param.substring(50);
+		measureCost(f, "String substring");
 		
 		rc.disintegrate();
 	}
@@ -139,9 +147,15 @@ public strictfp class RobotPlayer {
 	}
 
 	public static void measureCost (Function f, String name) {
-		int curr = Clock.getBytecodeNum();
+		int a1 = Clock.getBytecodeNum();
 		f.run();
-		System.out.printf("%s used %d\n", name, Clock.getBytecodeNum() - curr);
+		int a2 = Clock.getBytecodeNum();
+		
+		Function empty = () -> {};
+		int b1 = Clock.getBytecodeNum();
+		empty.run();
+		int b2 = Clock.getBytecodeNum();
+		System.out.printf("%s used %d\n", name, (a2 - a1) - (b2 - b1));
 	}
 
 	public static void smartShot(Direction dir, RobotType enemyType, float enemyDistance) throws GameActionException{
