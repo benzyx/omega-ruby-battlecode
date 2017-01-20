@@ -1596,7 +1596,6 @@ public strictfp class RobotPlayer {
 				}
 				skipToNextRound = true;
 			}
-			debug_highlightDomination();
 		}
 		
 		if (isGardener)
@@ -1648,17 +1647,6 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
-	static void debug_highlightDomination() throws GameActionException
-	{
-		for (RobotInfo info : nearbyEnemies)
-		{
-			if (dominates(info))
-			{
-				rc.setIndicatorLine(myLocation, info.getLocation(), 100, 0, 0);
-				rc.setIndicatorDot(info.getLocation(), 100, 0, 0);
-			}
-		}
-	}
 	static void hashTableInsert(int x) throws GameActionException
 	{
 		int p = x;
@@ -1701,52 +1689,6 @@ public strictfp class RobotPlayer {
 			else
 			{
 				++p;
-			}
-		}
-	}
-	
-	static boolean dominates(RobotInfo info)
-	{
-		switch (info.getType())
-		{
-		case ARCHON:
-		case GARDENER:
-		case LUMBERJACK:
-			return false;
-		default:
-			;
-		}
-		if (info.moveCount == 0 && info.attackCount == 0)
-		{
-			return true;
-		}
-//		if (myID == 1 && info.getType() == RobotType.SCOUT)
-//		{
-//			return true;
-//		}
-//		int theirLatestRound = round - (int) (theirSpawns[0].distanceTo(info.getLocation()) / info.type.strideRadius);
-//		if (theirLatestRound < spawnRound)
-//		{
-//			insertToLocalTable(info.ID);
-//			return true;
-//		}
-		int id = info.ID;
-		int x = id;
-		for (;;)
-		{
-			x %= HASH_TABLE_LEN;
-			int at = dominationTable[x];
-			if (at == id)
-			{
-				return true;
-			}
-			else if (at == 0)
-			{
-				return false;
-			}
-			else
-			{
-				++x;
 			}
 		}
 	}
@@ -1839,20 +1781,6 @@ public strictfp class RobotPlayer {
 		{
 			return;
 		}
-		// We couldn't find a reflection so now we look for domination
-		RobotInfo best = null;
-		float minDist = 99999999;
-		for (RobotInfo info : nearbyEnemies)
-		{
-			float d = myLocation.distanceTo(info.getLocation());
-			if (d < minDist && dominates(info))
-			{
-				best = info;
-				minDist = d;
-			}
-		}
-		dominated = best;
-		debug_highlightDominated();
 	}
 
 	private static void debug_highlightDominated() throws GameActionException
