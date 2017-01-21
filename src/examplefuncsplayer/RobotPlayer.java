@@ -1985,14 +1985,13 @@ public strictfp class RobotPlayer {
 
 	public static MapLocation readPoint(int pos) throws GameActionException
 	{
-		return new MapLocation(rc.readBroadcast(pos)/1000.0f, rc.readBroadcast(pos + 1)/1000.0f);
+		return new MapLocation(rc.readBroadcastFloat(pos), rc.readBroadcastFloat(pos + 1));
 	}
 
-	public static int writePoint(int pos, MapLocation val) throws GameActionException
+	public static void writePoint(int pos, MapLocation val) throws GameActionException
 	{
-		rc.broadcast(pos++, (int) val.x*1000);
-		rc.broadcast(pos++, (int) val.y*1000);
-		return pos;
+		rc.broadcastFloat(pos, val.x);
+		rc.broadcastFloat(++pos, val.y);
 	}
 
 
