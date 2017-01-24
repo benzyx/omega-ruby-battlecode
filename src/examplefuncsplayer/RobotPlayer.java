@@ -87,6 +87,8 @@ public strictfp class RobotPlayer {
 	static int lastScoutBuildTime;
 	static boolean skipToNextRound;
 	static MapLocation choppableTree;
+	static MapLocation theirBase;
+	
 	static int retHelper1, retHelper2;
 
 	/**
@@ -184,7 +186,11 @@ public strictfp class RobotPlayer {
 
 				if (freeRange)
 				{
-					if (retargetCount < 15)
+					if (theirBaseFound())
+					{
+						currentTarget = theirBase;
+					}
+					else if (retargetCount < 15)
 					{
 						currentTarget = theirSpawns[retargetCount % theirSpawns.length];
 						if (myLocation.distanceTo(currentTarget) < 4)
@@ -208,13 +214,6 @@ public strictfp class RobotPlayer {
 					{
 						currentTarget = myLocation.add(randomDirection(), 100);
 					}
-				}
-				else
-				{
-					if (currentTarget == null || round % 30 == 0)
-					{
-						currentTarget = myLocation.add(randomDirection(), 100);
-					}        			
 				}
 
 //				if (freeRange)
@@ -605,17 +604,6 @@ public strictfp class RobotPlayer {
 	
 	public static void scoutSpecificLogic() throws GameActionException
 	{
-		if (!theirBaseFound())
-		{
-			for (RobotInfo info : nearbyEnemies)
-			{
-				if (info.getType() == RobotType.GARDENER)
-				{
-					writePoint(CHANNEL_THEIR_BASE, info.getLocation());
-					break;
-				}
-			}
-		}
 	}
 
 	public static void archonSpecificLogic() throws GameActionException
@@ -1311,11 +1299,8 @@ public strictfp class RobotPlayer {
 	
 	static void adHocPathfind(int myX, int myY) throws GameActionException
 	{
-		if (!theirBaseFound())
-		{
-			return;
-		}
-		MapLocation them = readPoint(CHANNEL_THEIR_BASE);
+		MapLocation them = myTarget();
+		resetHistory();
 		if (dfsWrapped(myX, myY, (int) them.x, (int) them.y))
 		{
 			for (int a = 0, b = beaconLen - 1; a < b; a++, b--)
@@ -1324,7 +1309,6 @@ public strictfp class RobotPlayer {
 				beacons[a] = beacons[b];
 				beacons[b] = swp;
 			}
-			resetHistory();
 		}
 		else
 		{
@@ -1376,7 +1360,7 @@ public strictfp class RobotPlayer {
 			int bestDist = INFINITY;
 			int myX = (int) (0.5f + myLocation.x);
 			int myY = (int) (0.5f + myLocation.y);
-			if (readConsumerBFSDistance(myX, myY) < INFINITY)
+			if (theirBaseFound() && readConsumerBFSDistance(myX, myY) < INFINITY && myTarget().distanceTo(theirBase) < 4)
 			{
 				for (int i = 0; i < 8; i++)
 				{
@@ -1532,7 +1516,14 @@ public strictfp class RobotPlayer {
 			}
 			else if (iterations == 2 && currentTarget != null)
 			{
-				cand = myLocation.add(myLocation.directionTo(currentTarget), myStride);
+				if (isScout && closestTree != null)
+				{
+					cand = myLocation.add(myLocation.directionTo(closestTree.getLocation()), myStride);
+				}
+				else
+				{
+					cand = myLocation.add(myLocation.directionTo(currentTarget), myStride);
+				}
 			}
 			if (rc.canMove(cand))
 			{
@@ -1580,6 +1571,7 @@ public strictfp class RobotPlayer {
 	public static void onRoundBegin() throws GameActionException
 	{
 		roam = false;
+		theirBase = readPoint(CHANNEL_THEIR_BASE);
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets();
@@ -1773,6 +1765,21 @@ public strictfp class RobotPlayer {
 				}
 			}
 		}
+		if (!theirBaseFound())
+		{
+			for (RobotInfo info : nearbyEnemies)
+			{
+				if (info.getType() == RobotType.GARDENER)
+				{
+					writePoint(CHANNEL_THEIR_BASE, info.getLocation());
+					break;
+				}
+			}
+		}
+		else if (myLocation.distanceTo(theirBase) < 3 && nearbyEnemies.length == 0)
+		{
+			rc.broadcastInt(CHANNEL_THEIR_BASE, 0);
+		}
 		if (isArchon)
 		{
 			burnCycles(Clock.getBytecodesLeft() / 2 - 500);
@@ -1885,7 +1892,6 @@ public strictfp class RobotPlayer {
 		currentBFSKey %= BFS_KEY_COUNT;
 		rc.broadcast(CHANNEL_BFS_KEY, currentBFSKey);
 		rc.broadcast(CHANNEL_QUEUE_LENGTH, 0);
-		MapLocation theirBase = readPoint(CHANNEL_THEIR_BASE);
 		int x = (int) theirBase.x;
 		int y = (int) theirBase.y;
 		System.out.println("BFS INIT");
@@ -2060,9 +2066,8 @@ public strictfp class RobotPlayer {
 		{
 			return;
 		}
-		if (!theirBaseFound())
+		if (theirBaseFound())
 		{
-			MapLocation theirBase = readPoint(CHANNEL_THEIR_BASE);
 			rc.setIndicatorDot(theirBase, 255, 255, 255);
 		}
 
