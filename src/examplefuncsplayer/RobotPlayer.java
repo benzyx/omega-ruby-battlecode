@@ -2,6 +2,8 @@ package examplefuncsplayer;
 import battlecode.common.*;
 
 public strictfp class RobotPlayer {
+	public static final int INFINITY = 100000;
+	
 	public static final int CHANNEL_CURRENT_ROUND = 0;
 	public static final int CHANNEL_NUMBER_OF_ARCHONS = 100;
 	public static final int CHANNEL_NUMBER_OF_GARDENERS = 103;
@@ -20,22 +22,21 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_CALL_FOR_HELP_ROUND = 15;
 	public static final int CHANNEL_HAPPY_PLACE = 16;
 	public static final int CHANNEL_ATTACK = 18;
-	public static final int CHANNEL_FIRST_SOLDIER_BLOCKED = 19;
+	public static final int CHANNEL_CRAMPED = 19;
 	public static final int CHANNEL_GARDENER_LOCATIONS = 20;
 	public static final int GARDENER_LOC_LIMIT = 10;
 	// Channels 20-120 reserved for gardeners
 	public static final int CHANNEL_LAST_SCOUT_BUILD_TIME = 121;
+	public static final int SCOUT_BUILD_INTERVAL = 80;
 	public static final int CHANNEL_CHOPPABLE_TREE = 122;
 	public static final int CHANNEL_INITIAL_ARCHON_BLOCKED = 124;
-	public static final int SCOUT_BUILD_INTERVAL = 80;
-	public static final int CHANNEL_HASH_TABLE_SIZE = 200;
-	public static final int CHANNEL_HASH_TABLE = 201;
-	// Channels 201-999 reserved for hash table
-	public static final int HASH_TABLE_LEN = 1000 - CHANNEL_HASH_TABLE;
+	public static final int CHANNEL_THEIR_BASE = 125;
+	public static final int CHANNEL_MAP_START_X = 127;
+	public static final int CHANNEL_MAP_START_Y = 128;
 
 	public static final float REPULSION_RANGE = 1.7f;
 
-	static int topBound, leftBound, bottomBound, rightBound;
+	static float topBound, leftBound, bottomBound, rightBound;
 	static RobotController rc;
 	static int myID;
 	static MapLocation destination = null;
@@ -86,7 +87,6 @@ public strictfp class RobotPlayer {
 	static int lastScoutBuildTime;
 	static boolean skipToNextRound;
 	static MapLocation choppableTree;
-
 	static int retHelper1, retHelper2;
 
 	/**
@@ -117,11 +117,7 @@ public strictfp class RobotPlayer {
 		myID = rc.readBroadcast(myNumberOfChannel());
 		rc.broadcast(myNumberOfChannel(), myID + 1);
 
-		if (isSoldier && myID % 4 != 1)
-		{
-			freeRange = true;
-		}
-		if (isLumberjack && myID > 10 && myID % 2 == 1)
+		if (isSoldier)
 		{
 			freeRange = true;
 		}
@@ -133,7 +129,6 @@ public strictfp class RobotPlayer {
 		sortByDistanceFromMe(theirSpawns);
 		if (myType == RobotType.ARCHON)
 		{
-			
 			if (myID == 0)
 			{
 				MapLocation them = theirSpawns[0];
@@ -144,11 +139,13 @@ public strictfp class RobotPlayer {
 				writePoint(CHANNEL_RALLY_POINT, rally);
 				writePoint(CHANNEL_HAPPY_PLACE, them);
 				writePoint(CHANNEL_CHOPPABLE_TREE, new MapLocation(-1, -1));
-				rc.broadcast(CHANNEL_MAP_TOP, 100000);
-				rc.broadcast(CHANNEL_MAP_LEFT, 100000);
-				rc.broadcast(CHANNEL_MAP_RIGHT, -100000);
-				rc.broadcast(CHANNEL_MAP_BOTTOM, -100000);
+				rc.broadcastFloat(CHANNEL_MAP_TOP, -INFINITY);
+				rc.broadcastFloat(CHANNEL_MAP_LEFT, -INFINITY);
+				rc.broadcastFloat(CHANNEL_MAP_RIGHT, INFINITY);
+				rc.broadcastFloat(CHANNEL_MAP_BOTTOM, INFINITY);
 				rc.broadcast(CHANNEL_INITIAL_ARCHON_BLOCKED, 0);
+				rc.broadcastInt(CHANNEL_MAP_START_X, -INFINITY);
+				rc.broadcastInt(CHANNEL_MAP_START_Y, -INFINITY);
 			}
 			else
 			{
@@ -179,6 +176,9 @@ public strictfp class RobotPlayer {
 					break;
 				case ARCHON:
 					archonSpecificLogic();
+					break;
+				case SCOUT:
+					scoutSpecificLogic();
 					break;
 				}
 
@@ -322,6 +322,7 @@ public strictfp class RobotPlayer {
 						if (rc.canChop(myClosestTree.ID))
 						{
 							rc.chop(myClosestTree.ID);
+							resetHistory();
 						}
 					}
 				}
@@ -530,6 +531,92 @@ public strictfp class RobotPlayer {
 			pts[idx] = swp;
 		}
 	}
+	
+	public static boolean theirBaseFound() throws GameActionException
+	{
+		return rc.readBroadcastInt(CHANNEL_THEIR_BASE) != 0;
+	}
+	
+	public static MapLocation randomPointWithin(float radius)
+	{
+		radius *= Math.sqrt(rand01());
+		return myLocation.add(randomDirection(), radius);
+	}
+	
+	static void relayInfo(int allowed) throws GameActionException
+	{
+		int start = Clock.getBytecodeNum();
+		while (Clock.getBytecodeNum() - start < allowed && Clock.getBytecodesLeft() > 1000)
+		{
+			float collideRadius = 0.95f;
+			MapLocation pt = randomPointWithin(myType.sensorRadius - collideRadius - 1.1f);
+			int x = (int) (pt.x + 0.5f);
+			int y = (int) (pt.y + 0.5f);
+			pt = new MapLocation(x, y);
+			if (!rc.onTheMap(pt, collideRadius))
+			{
+				writeStatus(x, y, STATUS_IMPASSABLE);
+			}
+			else
+			{
+				TreeInfo[] arr = rc.senseNearbyTrees(pt, collideRadius, null);
+				if (arr.length == 0)
+				{
+					writeStatus(x, y, STATUS_PASSABLE);
+				}
+				else
+				{
+					TreeInfo info = arr[0];
+					if (pt.distanceTo(info.getLocation()) - collideRadius - info.getRadius() <= 0)
+					{
+						writeStatus(x, y, STATUS_IMPASSABLE);
+					}
+					else
+					{
+						writeStatus(x, y, STATUS_PASSABLE);
+					}
+				}
+			}
+		}
+		System.out.println("Spent " + (Clock.getBytecodeNum() - start));
+	}
+	
+	public static void burnCycles(int allowed) throws GameActionException
+	{
+		System.out.println("Burn " + allowed);
+		if (!isBFSActive())
+		{
+			relayInfo(allowed);
+		}
+		else if (isArchon)
+		{
+			doBFS(allowed);
+		}
+		else if (isScout)
+		{
+			relayInfo(allowed);
+		}
+		else
+		{
+			doBFS(allowed / 2);
+			relayInfo(allowed / 2);
+		}
+	}
+	
+	public static void scoutSpecificLogic() throws GameActionException
+	{
+		if (!theirBaseFound())
+		{
+			for (RobotInfo info : nearbyEnemies)
+			{
+				if (info.getType() == RobotType.GARDENER)
+				{
+					writePoint(CHANNEL_THEIR_BASE, info.getLocation());
+					break;
+				}
+			}
+		}
+	}
 
 	public static void archonSpecificLogic() throws GameActionException
 	{
@@ -583,11 +670,7 @@ public strictfp class RobotPlayer {
 			}
 			else if (neutralTrees.length >= 1 && (lumberjacks == 0 || soldiers > 0))
 			{
-				attemptBuild(10, RobotType.LUMBERJACK);
-			}
-			else if (soldiers == 0)
-			{
-				attemptBuild(10, RobotType.SOLDIER);
+				return attemptBuild(10, RobotType.LUMBERJACK);
 			}
 			else if (gardeners == 1)
 			{
@@ -633,10 +716,6 @@ public strictfp class RobotPlayer {
 		lumberjacks = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_LUMBERJACKS));
 		scouts = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_SCOUTS));
 		trees = rc.getTreeCount();
-		if (rc.readBroadcast(CHANNEL_FIRST_SOLDIER_BLOCKED) != 0)
-		{
-			soldiers += 2;
-		}
 	}
 
 	public static void debug_highlightClosestGardener() throws GameActionException
@@ -660,6 +739,11 @@ public strictfp class RobotPlayer {
 		{
 			rc.setIndicatorLine(myLocation, pos, 0, 255, 0);
 		}
+	}
+	
+	static MapLocation myTarget()
+	{
+		return freeRange ? currentTarget : destination;
 	}
 
 	public static void gardenerSpecificLogic() throws GameActionException
@@ -727,15 +811,36 @@ public strictfp class RobotPlayer {
 		boolean wantGardener = false;
 		if (gardeners < trees / 5 + 1 || (rc.getTeamBullets() > 350 && gardeners < trees / 2)) // indicates some kind of blockage
 		{
-			if (gardeners > 0 || myID == 0 || rc.readBroadcast(CHANNEL_INITIAL_ARCHON_BLOCKED) == 1)
+			if (gardeners > 0 || rc.getTeamBullets() == 300)
 			{
 				wantGardener = true;
 			}
 		}
 		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
-				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners + 1 < trees)
+				gardeners <= 2 && rc.getTeamBullets() > 125)
 		{
 			wantGardener = true;
+		}
+
+		boolean wantLumberjack = false;
+		boolean wantSoldier = false;
+		if (rc.readBroadcastBoolean(CHANNEL_CRAMPED))
+		{
+			if (lumberjacks < 2)
+			{
+				wantLumberjack = true;
+			}
+		}
+		else
+		{
+			if (soldiers < 2 || soldiers < trees / 2)
+			{
+				wantSoldier = true;
+			}
+		}
+		if (nearbyEnemies.length > 0 && soldiers < 2)
+		{
+			wantSoldier = true;
 		}
 
 		if (isArchon)
@@ -750,22 +855,22 @@ public strictfp class RobotPlayer {
 
 		if (isGardener)
 		{
-			if (round - lastScoutBuildTime > SCOUT_BUILD_INTERVAL && trees >= 2)
-			{
-				attemptBuild(10, RobotType.SCOUT);
-			}
-			if (soldiers >= 2 && rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5))
+//			if (round - lastScoutBuildTime > SCOUT_BUILD_INTERVAL && trees >= 2)
+//			{
+//				attemptBuild(10, RobotType.SCOUT);
+//			}
+			if (soldiers >= 1 && rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5) && !wantSoldier && !wantLumberjack)
 			{
 				rc.setIndicatorDot(myLocation, 0, 255, 0);
 				attemptBuild(10, RobotType.ARCHON); // plant a tree
 			}
-			if (scouts <= 1 || (trees >= 5 && scouts <= 3))
-			{
-				attemptBuild(10, RobotType.SCOUT);
-			}
-			if (soldiers < trees / 2 || soldiers < 2)
+			if (wantSoldier)
 			{
 				attemptBuild(10, RobotType.SOLDIER);
+			}
+			if (wantLumberjack)
+			{
+				attemptBuild(10, RobotType.LUMBERJACK);
 			}
 		}
 	}
@@ -777,15 +882,19 @@ public strictfp class RobotPlayer {
 			{
 				RobotType.SCOUT,
 				RobotType.ARCHON,
-				RobotType.SCOUT,
-				RobotType.ARCHON,
-				RobotType.SCOUT,
-				null
+				RobotType.ARCHON
 			};
-		return buildOrder[index];
+		if (index >= buildOrder.length)
+		{
+			return null;
+		}
+		else
+		{
+			return buildOrder[index];
+		}
 	}
 
-	public static long badness(MapLocation loc)
+	public static long badness(MapLocation loc) throws GameActionException
 	{
 		long ret = 0;
 
@@ -795,140 +904,42 @@ public strictfp class RobotPlayer {
 		case SCOUT:
 		case LUMBERJACK:
 		case ARCHON:
-			if (closestTree != null && !(isLumberjack && freeRange))
+			if (closestTree != null)
 			{
-				ret += closestTree.getLocation().distanceTo(loc) * 10000000;
+				if (!isLumberjack || (!freeRange && nearbyEnemies.length == 0))
+				{
+					ret += closestTree.getLocation().distanceTo(loc) * 10000000;
+				}
 			}
 		default:;
 		}
 
-		if (isSoldier || isLumberjack || isTank)
+		if (beaconLen != 0)
 		{
-			if (isLumberjack && choppableTree != null) 
-			{
-				ret += 5000000* loc.distanceTo(choppableTree);
-				if (myLocation.distanceTo(choppableTree) < 7)
-					ret += 10000001 * loc.distanceTo(choppableTree);
-			}
-			if (!bruteDefence)
-			{
-				float d = loc.distanceTo(destination);
-				if (freeRange)
-				{
-					ret += 1000 * loc.distanceTo(currentTarget);
-				}
-				else
-				{
-					d -= controlRadius;
-					if (d < -5)
-					{
-						ret += 3000 * loc.distanceTo(happyPlace);	    				
-					}
-					else
-					{
-						d *= d;
-						ret += 1000 * d;
-					}
-				}
-				// soldier could be kited by scout when gardener sees soldier but the soldier does not
-				// see the scout.
-				if (isSoldier && round - helpRound <= 1)
-				{
-					ret += 400000 * loc.distanceTo(helpLocation);
-				}
-			}
+			ret += 1000 * loc.distanceTo(beacons[beaconLen - 1]);			
 		}
-		else if (isScout)
-		{
-			ret += 1000 * loc.distanceTo(currentTarget);
-		}
-		else if (isArchon && round < 40)
-		{
-			ret += 1000 * loc.distanceTo(destination);
-		}
-		else
-		{
-			ret += 1000 * loc.distanceTo(destination);
-		}
-		if (friendlyFireSpot){
-			ret -= 3000 * loc.distanceTo(myLocation);
-		}
-		if (bruteDefence)
-		{
-			ret += 500 * loc.distanceTo(myLocation);
-		}
-		else
-		{
-			//    		int i = (round + repellers.length - 1) % repellers.length;
-			//			if (repelWeight[i] > 0)
-			//			{
-			//				float d = loc.distanceTo(repellers[i]);
-			//				ret -= Math.sqrt(d) * repelWeight[i];
-			//			}
-		}
-
-		//    	if (!threatened)
-		//    	{
-		//    		if (leftBound < loc.x) ret -= 1000 * 500 * Math.min(5f, loc.x - leftBound);
-		//    		if (topBound < loc.y) ret -= 1000 * 500 * Math.min(5f, loc.y - topBound);
-		//    		if (rightBound > loc.x) ret -= 1000 * 500 * Math.min(5f, rightBound - loc.x);
-		//    		if (bottomBound > loc.y) ret -= 1000 * 500 * Math.min(5f, bottomBound - loc.y);
-		//    	}
-
+		
 		if (isScout)
 		{
-			if (reflection == null)
+			if (topBound == -INFINITY)
 			{
-				for (RobotInfo info : nearbyEnemies)
-				{
-					float d = loc.distanceTo(info.getLocation());
-					if (info == dominated)
-					{
-						ret += 5000 * d;
-						float threshold = myRadius + info.type.bodyRadius;
-						if (d < threshold + 1)
-						{
-							ret -= 5000;
-						}
-						if (d < threshold + GameConstants.BULLET_SPAWN_OFFSET)
-						{
-							ret -= 5000;
-						}
-					}
-					else
-					{
-						switch (info.getType())
-						{
-						case GARDENER:
-							ret += 1000 * d * d;
-							break;
-						case SOLDIER:
-						case TANK:
-						case LUMBERJACK:
-							if (round - lastGardenerHitRound < 80)
-							{
-								ret -= 50000 * Math.sqrt(d) * (1 - (round - lastGardenerHitRound) / 80f);
-							}
-							break;
-						case SCOUT:
-							if (round - lastGardenerHitRound < 80)
-							{
-								ret -= 2000 * Math.sqrt(d) * (1 - (round - lastGardenerHitRound) / 80f);
-							}
-						default:
-						}
-					}
-				}
+				ret += 20000 * loc.y;
 			}
-			for (RobotInfo info : nearbyFriends)
+			else if (leftBound == -INFINITY)
 			{
-				if (info.getType() == RobotType.SCOUT)
-				{
-					ret -= 1500 * loc.distanceTo(info.getLocation());
-				}
+				ret += 20000 * loc.x;
+			}
+			else if (bottomBound == INFINITY)
+			{
+				ret -= 20000 * loc.y;
+			}
+			else if (rightBound == INFINITY)
+			{
+				ret -= 20000 * loc.x;
 			}
 		}
-		else if (!isGardener && !isArchon)
+
+		if (!isGardener && !isArchon && !isScout)
 		{
 			for (RobotInfo info : nearbyEnemies)
 			{
@@ -977,7 +988,7 @@ public strictfp class RobotPlayer {
 			}
 		}
 
-		if (!isGardener)
+		if (!ignoreFriendRepulsion)
 		{
 			for (RobotInfo info : nearbyFriends)
 			{
@@ -1018,11 +1029,6 @@ public strictfp class RobotPlayer {
 					ret += 1000 * (1 / (0.01f + d / REPULSION_RANGE));
 				}
 			}    		
-		}
-
-		if (reflection != null)
-		{
-			ret += 20000 * loc.distanceTo(reflection);
 		}
 		
 		if (!bruteDefence && !isArchon)
@@ -1228,6 +1234,193 @@ public strictfp class RobotPlayer {
 			}
 		}
 	}
+	
+	static void resetHistory()
+	{
+		history = new MapLocation[history.length];
+	}
+	
+	static MapLocation[] beacons = new MapLocation[400];
+	static boolean ignoreFriendRepulsion;
+	static int beaconLen = 0;
+	static int destX, destY;
+	static MapLocation ttarg;
+	static String s;
+	
+	static boolean dfs(int x, int y) throws GameActionException
+	{
+		if (rc.getRoundNum() - round > 20)
+		{
+			return false;
+		}
+		if (x == destX && y == destY)
+		{
+			return true;
+		}
+		if (getStatusWithBounds(x, y) == STATUS_IMPASSABLE)
+		{
+			return false;
+		}
+		String k = x + "," + y;
+		if (s.contains(k))
+		{
+			return false;
+		}
+		s += " ";
+		s += k;
+		beacons[beaconLen++] = new MapLocation(x, y);
+//		rc.setIndicatorLine(myLocation, beacons[beaconLen - 1], 0, 255, 0);
+//		rc.setIndicatorLine(beacons[beaconLen - 1], ttarg, 0, 127, 0);
+		float[] d = new float[4];
+		boolean[] done = new boolean[4];
+		for (int i = 0; i < 4; i++)
+		{
+			int nx = x + dx[i];
+			int ny = y + dy[i];
+			d[i] = new MapLocation(nx, ny).distanceTo(ttarg);
+		}
+		for (int i = 0; i < 4; i++)
+		{
+			int best = -1;
+			for (int j = 0; j < 4; j++)
+			{
+				if (!done[j] && (best == -1 || d[j] < d[best]))
+				{
+					best = j;
+				}
+			}
+			if (dfs(x + dx[best], y + dy[best]))
+			{
+				return true;
+			}
+			done[best] = true;
+		}
+		--beaconLen;
+		return false;
+	}
+	
+	static boolean dfsWrapped(int fromX, int fromY, int toX, int toY) throws GameActionException
+	{
+		destX = toX;
+		destY = toY;
+		ttarg = new MapLocation(destX, destY);
+		s = "";
+		beaconLen = 0;
+		return dfs(fromX, fromY);
+	}
+	
+	static void adHocPathfind(int myX, int myY) throws GameActionException
+	{
+		if (!theirBaseFound())
+		{
+			return;
+		}
+		MapLocation them = readPoint(CHANNEL_THEIR_BASE);
+		if (dfsWrapped(myX, myY, (int) them.x, (int) them.y))
+		{
+			for (int a = 0, b = beaconLen - 1; a < b; a++, b--)
+			{
+				MapLocation swp = beacons[a];
+				beacons[a] = beacons[b];
+				beacons[b] = swp;
+			}
+			resetHistory();
+		}
+		else
+		{
+			beacons[0] = myTarget();
+			beaconLen = 1;
+		}
+		if (Clock.getBytecodesLeft() < 2000 || rc.getRoundNum() != round)
+		{
+			throw new RuntimeException();
+		}
+	}
+	
+	static boolean wasBFSAvailable = false;
+	
+	static void findBeacon() throws GameActionException
+	{
+		ignoreFriendRepulsion = false;
+		if (beaconLen > beacons.length)
+		{
+			beaconLen = 10;
+			
+			for (int a = 0, b = beaconLen - 1; a < b; a++, b--)
+			{
+				MapLocation swp = beacons[a];
+				beacons[a] = beacons[b];
+				beacons[b] = swp;
+			}
+		}
+		while (beaconLen > 1 && myLocation.distanceTo(beacons[beaconLen - 1]) < 1.5f)
+		{
+			--beaconLen;
+		}
+		if (beaconLen > 1)
+		{
+			ignoreFriendRepulsion = true;
+		}
+//		for (int i = 0; i + 1 < beaconLen; i++)
+//		{
+//			rc.setIndicatorLine(beacons[i], beacons[i+1], 255, 255, 255);
+//		}
+		if (beaconLen > 2 && !checkBlocked())
+		{
+			wasBFSAvailable = false;
+			return;
+		}
+		if (freeRange && !isScout)
+		{
+			MapLocation best = myLocation;
+			int bestDist = INFINITY;
+			int myX = (int) (0.5f + myLocation.x);
+			int myY = (int) (0.5f + myLocation.y);
+			if (readConsumerBFSDistance(myX, myY) < INFINITY)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					int nx = myX + dx[i];
+					int ny = myY + dy[i];
+					int d = readConsumerBFSDistance(nx, ny);
+					if (d < bestDist)
+					{
+						bestDist = d;
+						best = new MapLocation(nx, ny);
+					}
+				}
+			}
+			
+			if (best.distanceTo(myLocation) < 1)
+			{
+				if (checkBlocked())
+				{
+					adHocPathfind(myX, myY);
+				}
+				else
+				{
+					beaconLen = 1;
+					beacons[0] = myTarget();					
+				}
+			}
+			else if (!wasBFSAvailable || !checkBlocked())
+			{
+				ignoreFriendRepulsion = true;
+				beaconLen = 1;
+				beacons[0] = best;
+			}
+			else
+			{
+				adHocPathfind(myX, myY);
+			}
+			wasBFSAvailable = best.distanceTo(myLocation) >= 1;
+		}
+		else
+		{
+			beaconLen = 1;
+			beacons[0] = myTarget();
+		}
+	}
 
 	static MapLocation opti;
 
@@ -1235,6 +1428,7 @@ public strictfp class RobotPlayer {
 	{
 		debug_johnMadden();
 		preprocessBullets();
+		findBeacon();
 		MapLocation best = null;
 		long bestVal = 0;
 		int iterations = 0;
@@ -1255,7 +1449,16 @@ public strictfp class RobotPlayer {
 		{
 			after += 284 * (nearbyEnemies.length + 1);
 		}
-		while (Clock.getBytecodesLeft() - longest > after && iterations < 100)
+		int iterlim = 100;
+		if (isScout && nearbyBullets.length == 0 && freeRange && isScout && nearbyEnemies.length == 0)
+		{
+			iterlim = 5;
+		}
+		else if (isGardener || isArchon)
+		{
+			iterlim = 12;
+		}
+		while (Clock.getBytecodesLeft() - longest > after && iterations < iterlim)
 		{
 			int t1 = Clock.getBytecodesLeft();
 			float add;
@@ -1340,29 +1543,6 @@ public strictfp class RobotPlayer {
 					bestVal = b;
 				}
 			}
-			else if (!rc.onTheMap(cand, myRadius))
-			{
-				if (cand.x < leftBound && !rc.onTheMap(new MapLocation(myLocation.x - myStride, myLocation.y), myRadius))
-				{
-					leftBound = (int) cand.x;
-					rc.broadcast(CHANNEL_MAP_LEFT, leftBound);
-				}
-				if (cand.x > rightBound && !rc.onTheMap(new MapLocation(myLocation.x + myStride, myLocation.y), myRadius))
-				{
-					rightBound = (int) cand.x + 1;
-					rc.broadcast(CHANNEL_MAP_RIGHT, rightBound);
-				}
-				if (cand.y < topBound && !rc.onTheMap(new MapLocation(myLocation.x, myLocation.y - myStride), myRadius))
-				{
-					topBound = (int) cand.y;
-					rc.broadcast(CHANNEL_MAP_TOP, topBound);
-				}
-				if (cand.y > bottomBound && !rc.onTheMap(new MapLocation(myLocation.x, myLocation.y + myStride), myRadius))
-				{
-					bottomBound = (int) cand.y + 1;
-					rc.broadcast(CHANNEL_MAP_BOTTOM, bottomBound);
-				}
-			}
 			++iterations;
 			int taken = t1 - Clock.getBytecodesLeft();
 			longest = Math.max(longest, taken);
@@ -1390,6 +1570,11 @@ public strictfp class RobotPlayer {
 				rc.broadcast(CHANNEL_CONTROL_RADIUS, dist);
 			}
 		}
+		if (closestTree != null)
+		{
+			rc.setIndicatorLine(myLocation, closestTree.getLocation(), 255, 255, 255);
+		}
+		burnCycles(Clock.getBytecodesLeft() - 500);
 	}
 
 	public static void onRoundBegin() throws GameActionException
@@ -1412,10 +1597,11 @@ public strictfp class RobotPlayer {
 			if (ti.getContainedRobot() != null) {
 				writePoint(CHANNEL_CHOPPABLE_TREE, ti.getLocation());
 			}
-		leftBound = rc.readBroadcast(CHANNEL_MAP_LEFT);
-		rightBound = rc.readBroadcast(CHANNEL_MAP_RIGHT);
-		bottomBound = rc.readBroadcast(CHANNEL_MAP_BOTTOM);
-		topBound = rc.readBroadcast(CHANNEL_MAP_TOP);
+		leftBound = rc.readBroadcastFloat(CHANNEL_MAP_LEFT);
+		rightBound = rc.readBroadcastFloat(CHANNEL_MAP_RIGHT);
+		bottomBound = rc.readBroadcastFloat(CHANNEL_MAP_BOTTOM);
+		topBound = rc.readBroadcastFloat(CHANNEL_MAP_TOP);
+		debug_printBounds();
 		myLocation = rc.getLocation();
 		history[round % history.length] = myLocation;
 		controlRadius = rc.readBroadcast(CHANNEL_CONTROL_RADIUS) / 1000f;
@@ -1527,33 +1713,6 @@ public strictfp class RobotPlayer {
 			rc.setIndicatorDot(myLocation, 0, 0, 0);
 		}
 
-		int a = Clock.getBytecodesLeft();
-		int hashTableLen = rc.readBroadcast(CHANNEL_HASH_TABLE_SIZE);
-		if (hashTableLen < 400)
-		{
-			for (RobotInfo enemy : nearbyEnemies)
-			{
-				if (enemy.moveCount != 0 || enemy.attackCount != 0)
-				{
-					hashTableInsert(enemy.ID);
-				}
-			}
-		}
-		debug_printTimeTaken("Hash table update", a);
-		
-		if (isScout)
-		{
-			if (dominationTable == null)
-			{
-				dominationTable = new int[HASH_TABLE_LEN];
-				for (int i = 0; i < HASH_TABLE_LEN; i++)
-				{
-					dominationTable[i] = rc.readBroadcast(CHANNEL_HASH_TABLE + i);
-				}
-				skipToNextRound = true;
-			}
-		}
-		
 		if (isGardener)
 		{
 			initHexes();
@@ -1575,41 +1734,342 @@ public strictfp class RobotPlayer {
 			if (tree.x >= 0 && (choppableTree == null || myLocation.distanceTo(tree) < myLocation.distanceTo(choppableTree)))
 				choppableTree = tree;
 		}
-		if (rc.getRoundNum() + 2 >= rc.getRoundLimit() || rc.getTeamVictoryPoints() + rc.getTeamBullets() / 10 > 1000)
+		if (rc.getRoundNum() + 2 >= rc.getRoundLimit() || rc.getTeamVictoryPoints() + rc.getTeamBullets() / rc.getVictoryPointCost() > 1000)
 		{
 			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
 		}
 		if (rc.getRoundNum() >= 2750 || (rc.getRoundNum() >= 2500 && rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_ARCHONS)) == 0))
 			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
-		if (myID == 0 && freeRange && isSoldier && nearbyEnemies.length == 0)
+		findBounds();
+		if (isLumberjack && !freeRange)
 		{
-			if (checkBlocked())
+			if (checkBlocked() || noNeutralTrees())
 			{
-				rc.broadcast(CHANNEL_FIRST_SOLDIER_BLOCKED, 1);
-				freeRange = false;
+				freeRange = true;
+			}
+		}
+		debug_highlightGrid();
+		if (isArchon && myID == 0)
+		{
+			if (round == 15 || (round % 100 == 0 && rc.readBroadcastBoolean(CHANNEL_CRAMPED)))
+			{
+				if (round > 200)
+				{
+					rc.broadcastBoolean(CHANNEL_CRAMPED, false);
+				}
+				else
+				{
+					boolean b = dfsWrapped(
+							(int) myLocation.x,
+							(int) myLocation.y,
+							(int) theirSpawns[0].x,
+							(int) theirSpawns[0].y);
+					rc.broadcastBoolean(CHANNEL_CRAMPED, !b);
+					if (b)
+					{
+						rc.setIndicatorLine(myLocation, theirSpawns[0], 0, 0, 0);
+					}
+					System.out.println("CRAMPED = " + !b);
+				}
 			}
 		}
 		if (isArchon)
 		{
-			hashTableLen = 0;
-			for (int i = 0; i < HASH_TABLE_LEN; i++)
+			burnCycles(Clock.getBytecodesLeft() / 2 - 500);
+		}
+		else if (nearbyEnemies.length == 0 && nearbyBullets.length == 0)
+		{
+			burnCycles(Clock.getBytecodesLeft() / 4);
+		}
+	}
+	
+	static boolean noNeutralTrees()
+	{
+		for (TreeInfo info : nearbyTrees)
+		{
+			if (info.getTeam() == Team.NEUTRAL)
 			{
-				if (rc.readBroadcast(CHANNEL_HASH_TABLE + i) != 0)
-				{
-					++hashTableLen;
-				}
+				return false;
 			}
-			rc.broadcast(CHANNEL_HASH_TABLE_SIZE, hashTableLen);
-
-			if (myID == 0)
+		}
+		return true;
+	}
+	
+	static void findBounds() throws GameActionException
+	{
+		float r = myType.sensorRadius - 0.1f;
+		float lx = myLocation.x - r;
+		float rx = myLocation.x + r;
+		float ty = myLocation.y - r;
+		float by = myLocation.y + r;
+		if (lx > leftBound && !rc.onTheMap(new MapLocation(lx, myLocation.y)))
+		{
+			rc.broadcastFloat(CHANNEL_MAP_LEFT, lx);
+		}
+		if (rx < rightBound && !rc.onTheMap(new MapLocation(rx, myLocation.y)))
+		{
+			rc.broadcastFloat(CHANNEL_MAP_RIGHT, rx);
+		}
+		if (ty > topBound && !rc.onTheMap(new MapLocation(myLocation.x, ty)))
+		{
+			rc.broadcastFloat(CHANNEL_MAP_TOP, ty);
+		}
+		if (by < bottomBound && !rc.onTheMap(new MapLocation(myLocation.x, by)))
+		{
+			rc.broadcastFloat(CHANNEL_MAP_BOTTOM, by);
+		}
+	}
+	
+	private static void debug_printBounds() {
+		System.out.println("[" + leftBound + " " + topBound + " -- " + rightBound + " " + bottomBound + "]");
+	}
+	
+	static final int STATUS_IMPASSABLE = 1;
+	static final int STATUS_PASSABLE = 0;
+	
+	static final int TORUS_SIZE = 104;
+	
+	static final int CHANNEL_BFS_KEY = 999;
+	static final int CHANNEL_MAP = 1000;
+	static final int CHANNEL_DIST_INFO = CHANNEL_MAP + TORUS_SIZE * TORUS_SIZE / 32 + 1;
+	static final int DIST_BITS = 16;
+	static final int DIST_DPART = 14;
+	static final int CHANNEL_QUEUE_LENGTH = CHANNEL_DIST_INFO + TORUS_SIZE * TORUS_SIZE * DIST_BITS / 32 + 1;
+	static final int CHANNEL_QUEUE_BEGIN_POS = CHANNEL_QUEUE_LENGTH + 1;
+	static final int CHANNEL_QUEUE = CHANNEL_QUEUE_BEGIN_POS + 1;
+	static final int QUEUE_MAX_LEN = GameConstants.BROADCAST_MAX_CHANNELS - CHANNEL_QUEUE;
+	
+	static int getDistInfo(int x, int y) throws GameActionException
+	{
+		x %= TORUS_SIZE;
+		y %= TORUS_SIZE;
+		x += y * TORUS_SIZE;
+		return rc.readBroadcastInt(CHANNEL_DIST_INFO + x / 2) >> (x % 2 * DIST_BITS);
+	}
+	
+	static int popQueue() throws GameActionException
+	{
+		int len = rc.readBroadcast(CHANNEL_QUEUE_LENGTH);
+		if (len == 0)
+		{
+			return -1;
+		}
+		else
+		{
+			rc.broadcast(CHANNEL_QUEUE_LENGTH, len - 1);
+			int begin = rc.readBroadcast(CHANNEL_QUEUE_BEGIN_POS);
+			rc.broadcast(CHANNEL_QUEUE_BEGIN_POS, begin + 1);
+			return rc.readBroadcast(CHANNEL_QUEUE + begin % QUEUE_MAX_LEN);
+		}
+	}
+	
+	static int currentBFSKey;
+	static final int BFS_KEY_COUNT = 4;
+	
+	static int packCoordinates(int x, int y)
+	{
+		return (x << 16) | y;
+	}
+	
+	static void pushQueue(int x) throws GameActionException
+	{
+		int len = rc.readBroadcast(CHANNEL_QUEUE_LENGTH);
+		rc.broadcast(CHANNEL_QUEUE_LENGTH, len + 1);
+		int begin = rc.readBroadcast(CHANNEL_QUEUE_BEGIN_POS);
+		rc.broadcast(CHANNEL_QUEUE + (begin + len) % QUEUE_MAX_LEN, x);
+	}
+	
+	static void initBFS() throws GameActionException
+	{
+		++currentBFSKey;
+		currentBFSKey %= BFS_KEY_COUNT;
+		rc.broadcast(CHANNEL_BFS_KEY, currentBFSKey);
+		rc.broadcast(CHANNEL_QUEUE_LENGTH, 0);
+		MapLocation theirBase = readPoint(CHANNEL_THEIR_BASE);
+		int x = (int) theirBase.x;
+		int y = (int) theirBase.y;
+		System.out.println("BFS INIT");
+		setBFSDistance(x, y, 0);
+		pushQueue(packCoordinates(x, y));
+	}
+	
+	static void setBFSDistance(int x, int y, int d) throws GameActionException
+	{
+		x %= TORUS_SIZE;
+		y %= TORUS_SIZE;
+		x *= TORUS_SIZE;
+		x += y;
+		int shift = x % 2 * 16;
+		int channel = CHANNEL_DIST_INFO + x / 2;
+		int val = rc.readBroadcast(channel);
+		d |= currentBFSKey << 14; 
+		d <<= shift;
+		val &= ~(65535 << shift);
+		rc.broadcast(channel, val | d);
+	}
+	
+	static int readBFSDistance(int x, int y) throws GameActionException
+	{
+		x %= TORUS_SIZE;
+		y %= TORUS_SIZE;
+		x *= TORUS_SIZE;
+		x += y;
+		int shift = x % 2 * 16;
+		int channel = CHANNEL_DIST_INFO + x / 2;
+		int q = 65535 & (rc.readBroadcast(channel) >> shift);
+		if ((q >> 14) != currentBFSKey)
+		{
+			return -1;
+		}
+		else
+		{
+			return q & 16383;
+		}
+	}
+	
+	static int readConsumerBFSDistance(int x, int y) throws GameActionException
+	{
+		x %= TORUS_SIZE;
+		y %= TORUS_SIZE;
+		x *= TORUS_SIZE;
+		x += y;
+		int shift = x % 2 * 16;
+		int channel = CHANNEL_DIST_INFO + x / 2;
+		int q = 16383 & (rc.readBroadcast(channel) >> shift);
+		if (q == 0)
+		{
+			return INFINITY;
+		}
+		else
+		{
+			return q;
+		}
+	}
+	
+	static final int[] dx = {-1, 0, 1, 0, -1, 1, 1, -1};
+	static final int[] dy = {0, 1, 0, -1, -1, -1, 1, 1};
+	
+	static void debug_bfs_dot(int x, int y)
+	{
+		switch (currentBFSKey)
+		{
+		case 0: rc.setIndicatorDot(new MapLocation(x, y), 255, 255, 0); break;
+		case 1: rc.setIndicatorDot(new MapLocation(x, y), 0, 255, 0); break;
+		case 2: rc.setIndicatorDot(new MapLocation(x, y), 0, 0, 255); break;
+		case 3: rc.setIndicatorDot(new MapLocation(x, y), 0, 255, 255); break;
+		}
+	}
+	
+	static boolean isBFSActive()
+	{
+		return round >= 200;
+	}
+	
+	static void bfsStep() throws GameActionException
+	{
+		if (!isBFSActive())
+		{
+			return;
+		}
+		currentBFSKey = rc.readBroadcast(CHANNEL_BFS_KEY);
+		int q = popQueue();
+		if (q == -1)
+		{
+			initBFS();
+		}
+		else
+		{
+			int x = q >> 16;
+			int y = q & 65535;
+			debug_bfs_dot(x, y);
+			int d = readBFSDistance(x, y);
+			for (int i = 0; i < 4 && Clock.getBytecodesLeft() > 500; i++)
 			{
-				debug_highlightGrid();
+				int nx = x + dx[i];
+				int ny = y + dy[i];
+				if (readBFSDistance(nx, ny) == -1)
+				{
+					if (getStatusWithBounds(nx, ny) == STATUS_PASSABLE)
+					{
+						setBFSDistance(nx, ny, d + 1);
+						pushQueue(packCoordinates(nx, ny));
+					}
+					else
+					{
+						setBFSDistance(nx, ny, INFINITY);
+					}
+				}
 			}
 		}
 	}
 	
+	static void doBFS(int allowed) throws GameActionException
+	{
+		int num = Clock.getBytecodeNum();
+		while (Clock.getBytecodeNum() - num < allowed - 1500 && Clock.getBytecodesLeft() > 2000 && rc.getRoundNum() == round)
+		{
+			bfsStep();
+		}
+	}
+	
+	static int getStatus(int x, int y) throws GameActionException
+	{
+		x %= TORUS_SIZE;
+		y %= TORUS_SIZE;
+		x += y * TORUS_SIZE;
+		return 1 & (rc.readBroadcastInt(CHANNEL_MAP + x / 32) >> (x % 32));
+	}
+	
+	static int getStatusWithBounds(int x, int y) throws GameActionException
+	{
+		if (x < leftBound)
+		{
+			return STATUS_IMPASSABLE;
+		}
+		if (x > rightBound)
+		{
+			return STATUS_IMPASSABLE;
+		}
+		if (y < topBound)
+		{
+			return  STATUS_IMPASSABLE;
+		}
+		if (y > bottomBound)
+		{
+			return STATUS_IMPASSABLE;
+		}
+		return getStatus(x, y);
+	}
+	
+	static void writeStatus(int x, int y, int status) throws GameActionException
+	{
+		x %= TORUS_SIZE;
+		y %= TORUS_SIZE;
+		x += y * TORUS_SIZE;
+		int idx = CHANNEL_MAP + x / 32;
+		int shift = x % 32;
+		int v = rc.readBroadcastInt(idx);
+		v &= ~(1 << (shift));
+		v |= status << shift;
+		rc.broadcastInt(idx, v);
+	}
+	
 	private static void debug_highlightGrid() throws GameActionException
 	{
+		if (!isArchon || myID != 0)
+		{
+			return;
+		}
+		if (!theirBaseFound())
+		{
+			MapLocation theirBase = readPoint(CHANNEL_THEIR_BASE);
+			rc.setIndicatorDot(theirBase, 255, 255, 255);
+		}
+
+		if (round % 100 != 14)
+		{
+			return; // this code lags the client
+		}
 		int l = (int) myLocation.x - 100;
 		int r = l + 200;
 		int t = (int) myLocation.y - 100;
@@ -1626,55 +2086,22 @@ public strictfp class RobotPlayer {
 		{
 			for (int j = t; j <= b; j++)
 			{
-				rc.setIndicatorLine(
-						new MapLocation(i - .1f, j - .1f),
-						new MapLocation(i + .1f, j + .1f),
-						0, 0, 0);
-			}
-		}
-	}
-	static void hashTableInsert(int x) throws GameActionException
-	{
-		int p = x;
-		for (;;)
-		{
-			p %= HASH_TABLE_LEN;
-			int c = p + CHANNEL_HASH_TABLE;
-			int at = rc.readBroadcast(c);
-			if (at == 0)
-			{
-				rc.broadcast(c, x);
-				return;
-			}
-			else if (at == x)
-			{
-				return;
-			}
-			else
-			{
-				++p;
-			}
-		}
-	}
-	static void insertToLocalTable(int x)
-	{
-		int p = x;
-		for (;;)
-		{
-			p %= HASH_TABLE_LEN;
-			int at = dominationTable[p];
-			if (at == 0)
-			{
-				dominationTable[p] = x;
-				return;
-			}
-			else if (at == x)
-			{
-				return;
-			}
-			else
-			{
-				++p;
+				switch (getStatusWithBounds(i, j))
+				{
+				case STATUS_PASSABLE:
+//					rc.setIndicatorLine(
+//							new MapLocation(i - .1f, j - .1f),
+//							new MapLocation(i + .1f, j + .1f),
+//							0, 255, 0);
+					break;
+				case STATUS_IMPASSABLE:
+					rc.setIndicatorDot(new MapLocation(i, j), 0, 0, 255);
+//					rc.setIndicatorLine(
+//							new MapLocation(i - .1f, j - .1f),
+//							new MapLocation(i + .1f, j + .1f),
+//							255, 0, 0);
+					break;
+				}
 			}
 		}
 	}
@@ -1924,6 +2351,11 @@ public strictfp class RobotPlayer {
 		crnt += 543857345;
 		crnt %= 1000000007;
 		return crnt % 360;
+	}
+	
+	static float rand01()
+	{
+		return rand() / 360f;
 	}
 
 	/**
