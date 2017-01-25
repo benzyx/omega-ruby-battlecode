@@ -88,7 +88,7 @@ public strictfp class RobotPlayer {
 	static boolean skipToNextRound;
 	static MapLocation choppableTree;
 	static MapLocation theirBase;
-	static MapLocation repeller;
+	static MapLocation attractor;
 	
 	static int retHelper1, retHelper2;
 
@@ -905,9 +905,9 @@ public strictfp class RobotPlayer {
 		{
 			ret += 1000 * loc.distanceTo(beacons[beaconLen - 1]);			
 		}
-		if (repeller != null)
+		if (attractor != null)
 		{
-			ret -= 1200 * loc.distanceTo(repeller);
+			ret += 1200 * loc.distanceTo(attractor);
 		}
 		
 		if (isScout)
@@ -1017,7 +1017,7 @@ public strictfp class RobotPlayer {
 		{
 			if (treeBuildTarget != null)
 			{
-				ret += 15000 * Math.abs(loc.distanceTo(treeBuildTarget) - 2);
+				ret += 150000 * Math.abs(loc.distanceTo(treeBuildTarget) - 2);
 			}
 			else
 			{
@@ -1276,6 +1276,7 @@ public strictfp class RobotPlayer {
 	static boolean ignoreFriendRepulsion;
 	static int beaconLen = 0;
 	static int destX, destY;
+	static int srcX, srcY;
 	static MapLocation ttarg;
 	static String s;
 	
@@ -1289,7 +1290,7 @@ public strictfp class RobotPlayer {
 		{
 			return true;
 		}
-		if (getStatusWithBounds(x, y) == STATUS_IMPASSABLE)
+		if ((x != srcX || y != srcY) && getStatusWithBounds(x, y) == STATUS_IMPASSABLE)
 		{
 			return false;
 		}
@@ -1338,6 +1339,8 @@ public strictfp class RobotPlayer {
 		ttarg = new MapLocation(destX, destY);
 		s = "";
 		beaconLen = 0;
+		srcX = fromX;
+		srcY = fromY;
 		return dfs(fromX, fromY);
 	}
 	
@@ -1345,7 +1348,7 @@ public strictfp class RobotPlayer {
 	{
 		MapLocation them = myTarget();
 		resetHistory();
-		repeller = null;
+		attractor = null;
 		if (dfsWrapped(myX, myY, (int) them.x, (int) them.y))
 		{
 			for (int a = 0, b = beaconLen - 1; a < b; a++, b--)
@@ -1357,7 +1360,7 @@ public strictfp class RobotPlayer {
 		}
 		else
 		{
-			repeller = myLocation;
+			attractor = myLocation.add(randomDirection(), 100);
 			beacons[0] = myTarget();
 			beaconLen = 1;
 		}
