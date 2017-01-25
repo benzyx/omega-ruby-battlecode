@@ -638,7 +638,8 @@ public strictfp class RobotPlayer {
 			if (best != null)
 			{
 				treeBuildTarget = best;
-				MapLocation spot = best.add(best.directionTo(myLocation), GameConstants.BULLET_TREE_RADIUS + myRadius + GameConstants.GENERAL_SPAWN_OFFSET);
+				float offs = GameConstants.BULLET_TREE_RADIUS + myRadius + GameConstants.GENERAL_SPAWN_OFFSET;
+				MapLocation spot = best.add(best.directionTo(myLocation), offs);
 				if (spot.distanceTo(myLocation) < myStride && rc.canMove(spot) && !rc.hasMoved())
 				{
 					rc.move(spot);
@@ -654,14 +655,14 @@ public strictfp class RobotPlayer {
 						return false;
 					}
 				}
+				if (spot.distanceTo(myLocation) < myStride || myLocation.distanceTo(best) < offs)
+				{
+					return onTreeBuildFail();
+				}
 			}
-			else if (neutralTrees.length >= 1 && (lumberjacks == 0 || soldiers > 0))
+			else
 			{
-				return attemptBuild(10, RobotType.LUMBERJACK);
-			}
-			else if (gardeners == 1)
-			{
-				treeBuildTarget = myLocation.add(randomDirection(), 5);
+				return onTreeBuildFail();
 			}
 		}
 		else
@@ -696,6 +697,19 @@ public strictfp class RobotPlayer {
 			}
 		}
 
+		return false;
+	}
+
+	private static boolean onTreeBuildFail() throws GameActionException
+	{
+		if (neutralTrees.length >= 1)
+		{
+			return attemptBuild(10, RobotType.LUMBERJACK);
+		}
+		else if (gardeners == 1)
+		{
+			treeBuildTarget = myLocation.add(randomDirection(), 5);
+		}
 		return false;
 	}
 
