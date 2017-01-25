@@ -33,6 +33,7 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_THEIR_BASE = 125;
 	public static final int CHANNEL_MAP_START_X = 127;
 	public static final int CHANNEL_MAP_START_Y = 128;
+	public static final int CHANNEL_VP_WIN = 129;
 
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -738,6 +739,11 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
+	static void donate() throws GameActionException
+	{
+		rc.donate((int) (rc.getTeamBullets() / rc.getVictoryPointCost()) * rc.getVictoryPointCost());
+	}
+	
 	static MapLocation myTarget()
 	{
 		return freeRange ? currentTarget : destination;
@@ -817,6 +823,17 @@ public strictfp class RobotPlayer {
 				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners < round / 50)
 		{
 			wantGardener = true;
+		}
+		
+		if (rc.getTeamVictoryPoints() +
+				(rc.getTeamBullets() + trees * 200) / rc.getVictoryPointCost()
+				> GameConstants.VICTORY_POINTS_TO_WIN)
+		{
+			rc.broadcastBoolean(CHANNEL_VP_WIN, true);
+		}
+		if (rc.readBroadcastBoolean(CHANNEL_VP_WIN))
+		{
+			donate();
 		}
 
 		boolean wantLumberjack = false;
@@ -1774,10 +1791,12 @@ public strictfp class RobotPlayer {
 		}
 		if (rc.getRoundNum() + 2 >= rc.getRoundLimit() || rc.getTeamVictoryPoints() + rc.getTeamBullets() / rc.getVictoryPointCost() > 1000)
 		{
-			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
+			donate();
 		}
 		if (rc.getRoundNum() >= 2750 || (rc.getRoundNum() >= 2500 && rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_ARCHONS)) == 0))
-			rc.donate(10 * (int) (rc.getTeamBullets() / 10f));
+		{
+			donate();
+		}
 		findBounds();
 		if (isLumberjack && !freeRange)
 		{
