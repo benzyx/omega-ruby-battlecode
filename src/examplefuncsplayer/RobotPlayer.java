@@ -883,6 +883,9 @@ public strictfp class RobotPlayer {
 
 		if (isGardener)
 		{
+			if (rc.readBroadcastInt(CHANNEL_THING_BUILD_COUNT) == 2 && isRobotInNearbyTree()){
+				attemptBuild(10, RobotType.LUMBERJACK);
+			}
 			if (rc.readBroadcastBoolean(CHANNEL_IS_SCOUT_USEFUL) && rc.readBroadcast(CHANNEL_LAST_SCOUT_BUILD_TIME) == 0)
 			{
 				attemptBuild(10, RobotType.SCOUT);
@@ -902,7 +905,28 @@ public strictfp class RobotPlayer {
 			}
 		}
 	}
+	
+	private static void debug_ensureGardener()
+	{
+		if (!isGardener)
+		{
+			throw new RuntimeException();
+		}
+	}
 
+	private static boolean isRobotInNearbyTree()
+	{
+		debug_ensureGardener();
+		for (TreeInfo info : neutralTrees)
+		{
+			if (info.containedRobot != null)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	private static boolean anyFriendHasType(RobotType t)
 	{
 		for (RobotInfo o : nearbyFriends)
