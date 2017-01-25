@@ -922,13 +922,18 @@ public strictfp class RobotPlayer {
 		{
 		case SCOUT:
 		case LUMBERJACK:
-		case ARCHON:
 			if (closestTree != null)
 			{
 				if (!isLumberjack || (!freeRange && nearbyEnemies.length == 0))
 				{
 					ret += closestTree.getLocation().distanceTo(loc) * 10000000;
 				}
+			}
+			break;
+		case ARCHON:
+			if (closestTree != null && round < 50)
+			{
+				ret += closestTree.getLocation().distanceTo(loc) * 10000;
 			}
 		default:;
 		}
