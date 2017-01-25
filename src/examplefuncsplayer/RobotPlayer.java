@@ -1917,18 +1917,15 @@ public strictfp class RobotPlayer {
 				}
 			}
 		}
-		if (!theirBaseFound())
+		for (RobotInfo info : nearbyEnemies)
 		{
-			for (RobotInfo info : nearbyEnemies)
+			if (info.getType() == RobotType.GARDENER)
 			{
-				if (info.getType() == RobotType.GARDENER)
-				{
-					writePoint(CHANNEL_THEIR_BASE, info.getLocation());
-					break;
-				}
+				writePoint(CHANNEL_THEIR_BASE, info.getLocation());
+				break;
 			}
 		}
-		else if (myLocation.distanceTo(theirBase) < 3 && !canSeeValuableTargets())
+		if (myLocation.distanceTo(theirBase) < 3 && !canSeeValuableTargets())
 		{
 			rc.broadcastInt(CHANNEL_THEIR_BASE, 0);
 		}
