@@ -1917,12 +1917,23 @@ public strictfp class RobotPlayer {
 				}
 			}
 		}
+		loop:
 		for (RobotInfo info : nearbyEnemies)
 		{
-			if (info.getType() == RobotType.GARDENER)
+			switch (info.getType())
 			{
+			case GARDENER:
 				writePoint(CHANNEL_THEIR_BASE, info.getLocation());
-				break;
+				break loop;
+			case SOLDIER:
+			case LUMBERJACK:
+				if (round > 200 && !theirBaseFound())
+				{
+					writePoint(CHANNEL_THEIR_BASE, info.getLocation());
+				}
+				break; // switch
+			default:
+				;
 			}
 		}
 		if (myLocation.distanceTo(theirBase) < 3 && !canSeeValuableTargets())
