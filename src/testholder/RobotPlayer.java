@@ -35,7 +35,8 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_MAP_START_Y = 128;
 	public static final int CHANNEL_VP_WIN = 129;
 	public static final int CHANNEL_IS_SCOUT_USEFUL = 130;
-
+	public static final int CHANNEL_THING_BUILD_COUNT = 131;
+	
 	public static final float REPULSION_RANGE = 1.7f;
 
 	static float topBound, leftBound, bottomBound, rightBound;
@@ -199,16 +200,7 @@ public strictfp class RobotPlayer {
 						currentTarget = theirSpawns[retargetCount % theirSpawns.length];
 						if (myLocation.distanceTo(currentTarget) < 4)
 						{
-							boolean anyGardener = false;
-							for (RobotInfo info : nearbyEnemies)
-							{
-								if (info.getType() == RobotType.GARDENER)
-								{
-									anyGardener = true;
-									break;
-								}
-							}
-							if (!anyGardener)
+							if (!canSeeValuableTargets())
 							{
 								++retargetCount;
 							}
@@ -301,7 +293,8 @@ public strictfp class RobotPlayer {
 
 					if (nearbyEnemies.length != 0 &&
 							myLocation.distanceTo(nearbyEnemies[0].getLocation())
-							< myRadius + GameConstants.INTERACTION_DIST_FROM_EDGE + nearbyEnemies[0].getType().bodyRadius)
+							< myRadius + GameConstants.INTERACTION_DIST_FROM_EDGE + nearbyEnemies[0].getType().bodyRadius &&
+							nearbyEnemies[0].getType() != RobotType.ARCHON)
 					{
 						rc.strike();
 					}
@@ -351,8 +344,9 @@ public strictfp class RobotPlayer {
 						}
 					}
 				}
-				if (!rc.hasAttacked() && (isSoldier || isTank || isScout))
+				if (!rc.hasAttacked() && (isSoldier || isTank))
 				{
+					trees = rc.getTreeCount();
 					friendlyFireSpot = false;
 					long bestVal = 0;
 					Direction dir = null;
@@ -412,7 +406,7 @@ public strictfp class RobotPlayer {
 								dist < req &&
 								!isNeutralTree &&
 								(!isEnemyTree ||
-									(info.getType() == RobotType.GARDENER && !isScout && trees >= 6)))
+									(info.getType() == RobotType.GARDENER && trees >= 4)))
 						{
 							long val = (long) getIdealDistanceMultiplier(info.getType());
 							if (dir == null || val > bestVal)
@@ -425,9 +419,7 @@ public strictfp class RobotPlayer {
 						}
 					}
 
-					if (!isScout || enemyType == RobotType.GARDENER || trees >= 4) {
-						smartShot(dir, enemyType, enemyDistance);
-					}
+					smartShot(dir, enemyType, enemyDistance);
 
 					// pink line showing who i wanna shoot
 					rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
@@ -451,6 +443,26 @@ public strictfp class RobotPlayer {
 			}
 		}
 	}
+	
+	private static boolean canSeeValuableTargets()
+	{
+		for (RobotInfo info : nearbyEnemies)
+		{
+			switch (info.getType())
+			{
+			case GARDENER:
+			case SOLDIER:
+			case LUMBERJACK:
+			case TANK:
+			case ARCHON:
+				return true;
+			default:
+				;
+			}
+		}
+		return false;
+	}
+	
 	public static void smartShot(Direction dir, RobotType enemyType, float enemyDistance) throws GameActionException{
 		if (dir == null) return;
 
@@ -468,7 +480,6 @@ public strictfp class RobotPlayer {
 		{
 			return;
 		}
-		int trees = rc.getTreeCount();
 		if (enemyType == RobotType.ARCHON && trees < 3 && round < 750)
 		{
 			return;
@@ -649,6 +660,7 @@ public strictfp class RobotPlayer {
 					if (rc.canPlantTree(dir))
 					{
 						rc.plantTree(dir);
+						increment(CHANNEL_THING_BUILD_COUNT);
 						return true;
 					}
 					else
@@ -693,6 +705,7 @@ public strictfp class RobotPlayer {
 					{
 						writePoint(CHANNEL_RALLY_POINT, myLocation);
 					}
+					increment(CHANNEL_THING_BUILD_COUNT);
 					return true;
 				}
 			}
@@ -822,7 +835,7 @@ public strictfp class RobotPlayer {
 		boolean wantGardener = false;
 		if (gardeners < trees / 5 + 1 || (rc.getTeamBullets() > 350 && gardeners < trees / 2)) // indicates some kind of blockage
 		{
-			if (gardeners > 0 || rc.getTeamBullets() == 300)
+			if (gardeners > 0 || (rc.getTeamBullets() >= 300 && round == 1))
 			{
 				wantGardener = true;
 			}
@@ -880,6 +893,9 @@ public strictfp class RobotPlayer {
 
 		if (isGardener)
 		{
+			if (rc.readBroadcastInt(CHANNEL_THING_BUILD_COUNT) == 2 && isRobotInNearbyTree()){
+				attemptBuild(10, RobotType.LUMBERJACK);
+			}
 			if (rc.readBroadcastBoolean(CHANNEL_IS_SCOUT_USEFUL) && rc.readBroadcast(CHANNEL_LAST_SCOUT_BUILD_TIME) == 0)
 			{
 				attemptBuild(10, RobotType.SCOUT);
@@ -899,7 +915,28 @@ public strictfp class RobotPlayer {
 			}
 		}
 	}
+	
+	private static void debug_ensureGardener()
+	{
+		if (!isGardener)
+		{
+			throw new RuntimeException();
+		}
+	}
 
+	private static boolean isRobotInNearbyTree()
+	{
+		debug_ensureGardener();
+		for (TreeInfo info : neutralTrees)
+		{
+			if (info.containedRobot != null)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	private static boolean anyFriendHasType(RobotType t)
 	{
 		for (RobotInfo o : nearbyFriends)
@@ -988,10 +1025,15 @@ public strictfp class RobotPlayer {
 		{
 			for (RobotInfo info : nearbyEnemies)
 			{
-				float d = info.getLocation().distanceTo(loc);
-				if (d < 7)
+				switch (info.getType())
 				{
-					ret -= 2000 * (long) d * getIdealDistanceMultiplier(info.getType());
+				case SOLDIER:
+				case LUMBERJACK:
+				case TANK:
+					ret -= 20 * info.getLocation().distanceTo(loc) * getIdealDistanceMultiplier(info.getType());
+					break;
+				default:
+					;
 				}
 			}
 		}
@@ -1729,6 +1771,10 @@ public strictfp class RobotPlayer {
 			rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_LUMBERJACKS), 0);
 			rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_SCOUTS), 0);
 			rc.broadcast(newGardenerLocChannel, 0);
+			if (theirBaseFound())
+			{
+				rc.setIndicatorDot(theirBase, 127, 255, 255);
+			}
 		}
 		int myWrite = writeNumberChannel(numberOfChannel);
 		rc.broadcast(myWrite, rc.readBroadcast(myWrite) + 1);
@@ -1819,6 +1865,12 @@ public strictfp class RobotPlayer {
 		{
 			findEasyTargets();
 			trees = rc.getTreeCount();
+			if (nearbyTrees.length > 40)
+			{
+				TreeInfo[] arr = new TreeInfo[40];
+				System.arraycopy(nearbyTrees, 0, arr, 0, 40);
+				nearbyTrees = arr;
+			}
 		}
 		else if (isLumberjack)
 		{
@@ -1876,18 +1928,26 @@ public strictfp class RobotPlayer {
 				}
 			}
 		}
-		if (!theirBaseFound())
+		loop:
+		for (RobotInfo info : nearbyEnemies)
 		{
-			for (RobotInfo info : nearbyEnemies)
+			switch (info.getType())
 			{
-				if (info.getType() == RobotType.GARDENER)
+			case GARDENER:
+				writePoint(CHANNEL_THEIR_BASE, info.getLocation());
+				break loop;
+			case SOLDIER:
+			case LUMBERJACK:
+				if (round > 200 && !theirBaseFound())
 				{
 					writePoint(CHANNEL_THEIR_BASE, info.getLocation());
-					break;
 				}
+				break; // switch
+			default:
+				;
 			}
 		}
-		else if (myLocation.distanceTo(theirBase) < 3 && nearbyEnemies.length == 0)
+		if (myLocation.distanceTo(theirBase) < 3 && !canSeeValuableTargets())
 		{
 			rc.broadcastInt(CHANNEL_THEIR_BASE, 0);
 		}
@@ -2577,5 +2637,9 @@ public strictfp class RobotPlayer {
 		rc.broadcastFloat(++pos, val.y);
 	}
 
+	public static void increment(int channel) throws GameActionException
+	{
+		rc.broadcastInt(channel, rc.readBroadcastInt(channel) + 1);
+	}
 
 }
