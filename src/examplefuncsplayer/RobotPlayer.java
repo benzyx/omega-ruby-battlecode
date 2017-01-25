@@ -346,6 +346,7 @@ public strictfp class RobotPlayer {
 				}
 				if (!rc.hasAttacked() && (isSoldier || isTank))
 				{
+					trees = rc.getTreeCount();
 					friendlyFireSpot = false;
 					long bestVal = 0;
 					Direction dir = null;
@@ -479,7 +480,6 @@ public strictfp class RobotPlayer {
 		{
 			return;
 		}
-		int trees = rc.getTreeCount();
 		if (enemyType == RobotType.ARCHON && trees < 3 && round < 750)
 		{
 			return;
@@ -1025,10 +1025,15 @@ public strictfp class RobotPlayer {
 		{
 			for (RobotInfo info : nearbyEnemies)
 			{
-				float d = info.getLocation().distanceTo(loc);
-				if (d < 7)
+				switch (info.getType())
 				{
-					ret -= 2000 * (long) d * getIdealDistanceMultiplier(info.getType());
+				case SOLDIER:
+				case LUMBERJACK:
+				case TANK:
+					ret -= 20 * info.getLocation().distanceTo(loc) * getIdealDistanceMultiplier(info.getType());
+					break;
+				default:
+					;
 				}
 			}
 		}
