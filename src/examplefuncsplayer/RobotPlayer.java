@@ -474,7 +474,7 @@ public strictfp class RobotPlayer {
 			return;
 		}
 		int trees = rc.getTreeCount();
-		if (enemyType == RobotType.ARCHON && trees < 3)
+		if (enemyType == RobotType.ARCHON && trees < 3 && round < 750)
 		{
 			return;
 		}
