@@ -1855,7 +1855,7 @@ public strictfp class RobotPlayer {
 			rc.broadcastInt(CHANNEL_THEIR_BASE, 0);
 		}
 		archons = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_ARCHONS));
-		if (archons == 0)
+		if (round > 5 && archons == 0)
 		{
 			donate();
 		}
