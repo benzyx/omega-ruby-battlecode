@@ -1757,6 +1757,10 @@ public strictfp class RobotPlayer {
 			rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_LUMBERJACKS), 0);
 			rc.broadcast(writeNumberChannel(CHANNEL_NUMBER_OF_SCOUTS), 0);
 			rc.broadcast(newGardenerLocChannel, 0);
+			if (theirBaseFound())
+			{
+				rc.setIndicatorDot(theirBase, 127, 255, 255);
+			}
 		}
 		int myWrite = writeNumberChannel(numberOfChannel);
 		rc.broadcast(myWrite, rc.readBroadcast(myWrite) + 1);
