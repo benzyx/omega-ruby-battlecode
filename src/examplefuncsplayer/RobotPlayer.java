@@ -693,6 +693,10 @@ public strictfp class RobotPlayer {
 					{
 						rc.broadcast(CHANNEL_LAST_SCOUT_BUILD_TIME, round);
 					}
+					if (type == RobotType.GARDENER && gardeners == 0)
+					{
+						writePoint(CHANNEL_RALLY_POINT, myLocation);
+					}
 					return true;
 				}
 			}
