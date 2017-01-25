@@ -469,7 +469,7 @@ public strictfp class RobotPlayer {
 		for(RobotInfo info : nearbyFriends){
 			if (info.getLocation().distanceTo(myLocation) < enemyDistance && willCollideWithTarget(myLocation, dir, info)){
 				friendlyFireSpot = true;
-				rc.setIndicatorDot(myLocation, 255, 255, 0);
+//				rc.setIndicatorDot(myLocation, 255, 255, 0);
 				return; // friendly fire straight up
 			}
 
@@ -1413,7 +1413,7 @@ public strictfp class RobotPlayer {
 		s += " ";
 		s += k;
 		beacons[beaconLen] = new MapLocation(x, y);
-		rc.setIndicatorLine(myLocation, beacons[beaconLen], 0, 255, 0);
+//		rc.setIndicatorLine(myLocation, beacons[beaconLen], 0, 255, 0);
 		++beaconLen;
 		float[] d = new float[4];
 		boolean[] done = new boolean[4];
