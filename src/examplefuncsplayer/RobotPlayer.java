@@ -371,10 +371,9 @@ public strictfp class RobotPlayer {
 						{
 						case SCOUT:
 							req = 2.3f;
-						case TANK:
-							req = 100;
+							break;
 						default:
-							req = 6;
+							req = 10;
 						}
 						MapLocation enemyLocation = info.getLocation();
 						Direction currDirection = myLocation.directionTo(enemyLocation);
@@ -474,7 +473,12 @@ public strictfp class RobotPlayer {
 		{
 			return;
 		}
-		if (rc.canFirePentadShot() && (enemyDistance < 4.2f || rc.getTreeCount() >= 5))
+		int trees = rc.getTreeCount();
+		if (enemyType == RobotType.ARCHON && trees < 3)
+		{
+			return;
+		}
+		if (rc.canFirePentadShot() && (enemyDistance < 4.2f || trees >= 5))
 		{
 			rc.firePentadShot(dir);
 		}
@@ -1202,12 +1206,12 @@ public strictfp class RobotPlayer {
 			case GARDENER:
 				return 3000;
 			case ARCHON:
-				return theirSpawns.length == 1 ? 1500 : -100;
+				return theirSpawns.length == 1 ? 500 : -100;
 			case SOLDIER:
 			case TANK:
 				return 2500;
 			case SCOUT:
-				return freeRange ? 0 : 500;
+				return freeRange ? 0 : 200;
 			default:
 				return 0;
 			}
