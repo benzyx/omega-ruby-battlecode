@@ -547,7 +547,7 @@ public strictfp class RobotPlayer {
 		int start = Clock.getBytecodeNum();
 		while (Clock.getBytecodeNum() - start < allowed && Clock.getBytecodesLeft() > 1000)
 		{
-			float collideRadius = 0.95f;
+			float collideRadius = 0.8f;
 			MapLocation pt = randomPointWithin(myType.sensorRadius - collideRadius - 1.1f);
 			int x = (int) (pt.x + 0.5f);
 			int y = (int) (pt.y + 0.5f);
@@ -1245,7 +1245,7 @@ public strictfp class RobotPlayer {
 		{
 			return true;
 		}
-		if (getStatusWithBounds(x, y) == STATUS_IMPASSABLE)
+		if (myLocation.distanceTo(new MapLocation(x, y)) > 2 && getStatusWithBounds(x, y) == STATUS_IMPASSABLE)
 		{
 			return false;
 		}
@@ -1325,7 +1325,7 @@ public strictfp class RobotPlayer {
 	
 	static void findBeacon() throws GameActionException
 	{
-		ignoreFriendRepulsion = false;
+		ignoreFriendRepulsion = beaconLen > 1;
 		if (beaconLen > beacons.length)
 		{
 			beaconLen = 10;
@@ -1337,7 +1337,7 @@ public strictfp class RobotPlayer {
 				beacons[b] = swp;
 			}
 		}
-		while (beaconLen > 1 && myLocation.distanceTo(beacons[beaconLen - 1]) < 1.5f)
+		while (beaconLen > 1 && myLocation.distanceTo(beacons[beaconLen - 1]) < 2.5f)
 		{
 			--beaconLen;
 		}
@@ -1345,64 +1345,36 @@ public strictfp class RobotPlayer {
 		{
 			ignoreFriendRepulsion = true;
 		}
-//		for (int i = 0; i + 1 < beaconLen; i++)
-//		{
-//			rc.setIndicatorLine(beacons[i], beacons[i+1], 255, 255, 255);
-//		}
-		if (beaconLen > 2 && !checkBlocked())
+		for (int i = 0; i + 1 < beaconLen; i++)
 		{
-			wasBFSAvailable = false;
-			return;
+			rc.setIndicatorLine(beacons[i], beacons[i+1], 255, 255, 255);
 		}
-		if (freeRange && !isScout)
+		if (checkBlocked() && freeRange)
 		{
-			MapLocation best = myLocation;
-			int bestDist = INFINITY;
 			int myX = (int) (0.5f + myLocation.x);
 			int myY = (int) (0.5f + myLocation.y);
-			if (theirBaseFound() && readConsumerBFSDistance(myX, myY) < INFINITY && myTarget().distanceTo(theirBase) < 4)
-			{
-				for (int i = 0; i < 8; i++)
-				{
-					int nx = myX + dx[i];
-					int ny = myY + dy[i];
-					int d = readConsumerBFSDistance(nx, ny);
-					if (d < bestDist)
-					{
-						bestDist = d;
-						best = new MapLocation(nx, ny);
-					}
-				}
-			}
-			
-			if (best.distanceTo(myLocation) < 1)
-			{
-				if (checkBlocked())
-				{
-					adHocPathfind(myX, myY);
-				}
-				else
-				{
-					beaconLen = 1;
-					beacons[0] = myTarget();					
-				}
-			}
-			else if (!wasBFSAvailable || !checkBlocked())
-			{
-				ignoreFriendRepulsion = true;
-				beaconLen = 1;
-				beacons[0] = best;
-			}
-			else
-			{
-				adHocPathfind(myX, myY);
-			}
-			wasBFSAvailable = best.distanceTo(myLocation) >= 1;
+			adHocPathfind(myX, myY);
 		}
-		else
+		else if (beaconLen == 0)
 		{
 			beaconLen = 1;
 			beacons[0] = myTarget();
+		}
+		rc.setIndicatorLine(myLocation, beacons[beaconLen - 1], 255, 127, 0);
+		for (int i = 0; i < history.length; i++)
+		{
+			if (history[i] == null)
+			{
+				System.out.println(history[i]);
+			}
+			else
+			{
+				System.out.println(myLocation.distanceTo(history[i]));
+			}
+		}
+		if (round >= 800)
+		{
+			rc.resign();
 		}
 	}
 
@@ -1968,7 +1940,7 @@ public strictfp class RobotPlayer {
 	
 	static boolean isBFSActive()
 	{
-		return round >= 200;
+		return false;
 	}
 	
 	static void bfsStep() throws GameActionException
@@ -2124,7 +2096,7 @@ public strictfp class RobotPlayer {
 			{
 				return false;
 			}
-			if (history[i].distanceTo(myLocation) > 0.1f)
+			if (history[i].distanceTo(myLocation) > 0.5f)
 			{
 				return false;
 			}
@@ -2425,7 +2397,7 @@ public strictfp class RobotPlayer {
 		// A move never happened, so return false.
 		return false;
 	}
-
+	
 	static int myNumberOfChannel()
 	{
 		switch (myType)
