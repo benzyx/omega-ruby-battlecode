@@ -997,19 +997,22 @@ public strictfp class RobotPlayer {
 		}
 		else if (!isGardener && !isArchon)
 		{
-			for (RobotInfo info : nearbyEnemies)
+			if (!(isSoldier && round - lastAttackRound > 10))
 			{
-				float d = info.getLocation().distanceTo(loc);
-				float ideal = getIdealDistance(info.getType());
-				if (ideal < 0)
-					continue;
-				if (isSoldier && bruteDefence)
-					ideal = 0;
-				if (isLumberjack)
-					ideal = 0;
-				d -= ideal;
-				d *= d;
-				ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
+				for (RobotInfo info : nearbyEnemies)
+				{
+					float d = info.getLocation().distanceTo(loc);
+					float ideal = getIdealDistance(info.getType());
+					if (ideal < 0)
+						continue;
+					if (isSoldier && bruteDefence)
+						ideal = 0;
+					if (isLumberjack)
+						ideal = 0;
+					d -= ideal;
+					d *= d;
+					ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
+				}
 			}
 		}
 
