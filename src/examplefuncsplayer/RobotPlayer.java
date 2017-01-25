@@ -472,7 +472,7 @@ public strictfp class RobotPlayer {
 		{
 			return;
 		}
-		if (rc.canFirePentadShot() && (enemyDistance < 4.2f || trees >= 5))
+		if (rc.canFirePentadShot() && (enemyDistance < 4.2f || trees >= 5 || enemyType == RobotType.SOLDIER))
 		{
 			rc.firePentadShot(dir);
 		}
