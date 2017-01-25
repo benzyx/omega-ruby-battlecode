@@ -859,9 +859,12 @@ public strictfp class RobotPlayer {
 				wantSoldier = true;
 			}
 		}
-		if (nearbyEnemies.length > 0 && soldiers < 2)
+		if (nearbyEnemies.length > 0)
 		{
-			wantSoldier = true;
+			if (!anyFriendHasType(RobotType.SOLDIER))
+			{
+				wantSoldier = true;
+			}
 		}
 
 		if (isArchon)
@@ -896,21 +899,34 @@ public strictfp class RobotPlayer {
 		}
 	}
 
+	private static boolean anyFriendHasType(RobotType t)
+	{
+		for (RobotInfo o : nearbyFriends)
+		{
+			if (o.getType() == t)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	// Determines the next object to build in the build order. 
 	// !!!! If the return object is Archon, build a Tree. !!!!
 	public static RobotType getBuildOrderNext(int index){
-		RobotType[] buildOrder = 
-			{
-				RobotType.SCOUT,
-			};
-		if (index >= buildOrder.length)
-		{
-			return null;
-		}
-		else
-		{
-			return buildOrder[index];
-		}
+		return null;
+//		RobotType[] buildOrder = 
+//			{
+//				RobotType.SCOUT,
+//			};
+//		if (index >= buildOrder.length)
+//		{
+//			return null;
+//		}
+//		else
+//		{
+//			return buildOrder[index];
+//		}
 	}
 
 	public static long badness(MapLocation loc) throws GameActionException
