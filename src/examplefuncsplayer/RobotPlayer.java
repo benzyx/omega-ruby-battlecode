@@ -925,7 +925,18 @@ public strictfp class RobotPlayer {
 			}
 		}
 
-		if (!isGardener && !isArchon)
+		if (isScout)
+		{
+			for (RobotInfo info : nearbyEnemies)
+			{
+				float d = info.getLocation().distanceTo(loc);
+				if (d < 7)
+				{
+					ret += 2000 * (long) d * getIdealDistanceMultiplier(info.getType());
+				}
+			}
+		}
+		else if (!isGardener && !isArchon)
 		{
 			for (RobotInfo info : nearbyEnemies)
 			{
@@ -937,8 +948,6 @@ public strictfp class RobotPlayer {
 					ideal = 0;
 				if (isLumberjack)
 					ideal = 0;
-				if (isScout)
-					ideal = 6;
 				d -= ideal;
 				d *= d;
 				ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
@@ -1379,7 +1388,12 @@ public strictfp class RobotPlayer {
 //		{
 //			rc.setIndicatorLine(beacons[i], beacons[i+1], 255, 255, 255);
 //		}
-		if (checkBlocked() && freeRange)
+		if (isScout)
+		{
+			beaconLen = 1;
+			beacons[0] = currentTarget();
+		}
+		else if (checkBlocked() && freeRange)
 		{
 			int myX = (int) (0.5f + myLocation.x);
 			int myY = (int) (0.5f + myLocation.y);
