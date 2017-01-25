@@ -344,7 +344,7 @@ public strictfp class RobotPlayer {
 						}
 					}
 				}
-				if (!rc.hasAttacked() && (isSoldier || isTank || isScout))
+				if (!rc.hasAttacked() && (isSoldier || isTank))
 				{
 					friendlyFireSpot = false;
 					long bestVal = 0;
@@ -418,9 +418,7 @@ public strictfp class RobotPlayer {
 						}
 					}
 
-					if (!isScout || enemyType == RobotType.GARDENER || trees >= 4) {
-						smartShot(dir, enemyType, enemyDistance);
-					}
+					smartShot(dir, enemyType, enemyDistance);
 
 					// pink line showing who i wanna shoot
 					rc.setIndicatorLine(myLocation, myLocation.add(dir, enemyDistance),255,182,193);
