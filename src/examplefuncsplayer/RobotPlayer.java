@@ -35,7 +35,8 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_MAP_START_Y = 128;
 	public static final int CHANNEL_VP_WIN = 129;
 	public static final int CHANNEL_IS_SCOUT_USEFUL = 130;
-
+	public static final int CHANNEL_THING_BUILD_COUNT = 131;
+	
 	public static final float REPULSION_RANGE = 1.7f;
 
 	static float topBound, leftBound, bottomBound, rightBound;
@@ -649,6 +650,7 @@ public strictfp class RobotPlayer {
 					if (rc.canPlantTree(dir))
 					{
 						rc.plantTree(dir);
+						increment(CHANNEL_THING_BUILD_COUNT);
 						return true;
 					}
 					else
@@ -693,6 +695,7 @@ public strictfp class RobotPlayer {
 					{
 						writePoint(CHANNEL_RALLY_POINT, myLocation);
 					}
+					increment(CHANNEL_THING_BUILD_COUNT);
 					return true;
 				}
 			}
@@ -822,7 +825,7 @@ public strictfp class RobotPlayer {
 		boolean wantGardener = false;
 		if (gardeners < trees / 5 + 1 || (rc.getTeamBullets() > 350 && gardeners < trees / 2)) // indicates some kind of blockage
 		{
-			if (gardeners > 0 || rc.getTeamBullets() == 300)
+			if (gardeners > 0 || (rc.getTeamBullets() >= 300 && round == 1))
 			{
 				wantGardener = true;
 			}
@@ -2577,5 +2580,9 @@ public strictfp class RobotPlayer {
 		rc.broadcastFloat(++pos, val.y);
 	}
 
+	public static void increment(int channel) throws GameActionException
+	{
+		rc.broadcastInt(channel, rc.readBroadcastInt(channel) + 1);
+	}
 
 }
