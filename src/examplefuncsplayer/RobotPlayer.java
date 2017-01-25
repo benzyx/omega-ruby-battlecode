@@ -298,17 +298,9 @@ public strictfp class RobotPlayer {
 						}
 					}
 
-					RobotInfo[] a = rc.senseNearbyRobots(3, myTeam);
-					RobotInfo[] b = rc.senseNearbyRobots(3, myTeam.opponent());
-					boolean wantStrike = a.length < b.length;
-					for (RobotInfo info : b)
-					{
-						if (info.getType() == RobotType.SCOUT)
-						{
-							wantStrike = true;
-						}
-					}
-					if (wantStrike)
+					if (nearbyEnemies.length != 0 &&
+							myLocation.distanceTo(nearbyEnemies[0].getLocation())
+							< myRadius + GameConstants.INTERACTION_DIST_FROM_EDGE + nearbyEnemies[0].getType().bodyRadius)
 					{
 						rc.strike();
 					}
@@ -1855,7 +1847,7 @@ public strictfp class RobotPlayer {
 			rc.broadcastInt(CHANNEL_THEIR_BASE, 0);
 		}
 		archons = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_ARCHONS));
-		if (round > 5 && archons == 0)
+		if (round > 5 && archons == 0 && rc.getTeamVictoryPoints() <= rc.getOpponentVictoryPoints() + 2)
 		{
 			donate();
 		}
