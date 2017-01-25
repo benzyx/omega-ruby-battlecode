@@ -90,6 +90,7 @@ public strictfp class RobotPlayer {
 	static MapLocation choppableTree;
 	static MapLocation theirBase;
 	static MapLocation attractor;
+	static int lastAttackRound;
 	
 	static int retHelper1, retHelper2;
 
@@ -706,7 +707,7 @@ public strictfp class RobotPlayer {
 		return false;
 	}
 
-	static int gardeners, soldiers, trees, lumberjacks, scouts;
+	static int gardeners, soldiers, trees, lumberjacks, scouts, archons;
 	static void getMacroStats() throws GameActionException
 	{
 		gardeners = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_GARDENERS));
@@ -1429,7 +1430,7 @@ public strictfp class RobotPlayer {
 			beaconLen = 1;
 			beacons[0] = currentTarget;
 		}
-		else if (checkBlocked() && freeRange)
+		else if (checkBlocked() && freeRange && round - lastAttackRound > 10)
 		{
 			int myX = (int) (0.5f + myLocation.x);
 			int myY = (int) (0.5f + myLocation.y);
@@ -1627,6 +1628,10 @@ public strictfp class RobotPlayer {
 		if (closestTree != null)
 		{
 			rc.setIndicatorLine(myLocation, closestTree.getLocation(), 255, 255, 255);
+		}
+		if (rc.hasAttacked())
+		{
+			lastAttackRound = round;
 		}
 		burnCycles(Clock.getBytecodesLeft() - 500);
 	}
@@ -1848,6 +1853,11 @@ public strictfp class RobotPlayer {
 		else if (myLocation.distanceTo(theirBase) < 3 && nearbyEnemies.length == 0)
 		{
 			rc.broadcastInt(CHANNEL_THEIR_BASE, 0);
+		}
+		archons = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_ARCHONS));
+		if (archons == 0)
+		{
+			donate();
 		}
 		if (isArchon)
 		{
