@@ -405,7 +405,7 @@ public strictfp class RobotPlayer {
 								dist < req &&
 								!isNeutralTree &&
 								(!isEnemyTree ||
-									(info.getType() == RobotType.GARDENER && !isScout && trees >= 6)))
+									(info.getType() == RobotType.GARDENER && trees >= 4)))
 						{
 							long val = (long) getIdealDistanceMultiplier(info.getType());
 							if (dir == null || val > bestVal)
@@ -455,6 +455,8 @@ public strictfp class RobotPlayer {
 			case TANK:
 			case ARCHON:
 				return true;
+			default:
+				;
 			}
 		}
 		return false;
