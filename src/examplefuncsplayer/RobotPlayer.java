@@ -302,7 +302,8 @@ public strictfp class RobotPlayer {
 
 					if (nearbyEnemies.length != 0 &&
 							myLocation.distanceTo(nearbyEnemies[0].getLocation())
-							< myRadius + GameConstants.INTERACTION_DIST_FROM_EDGE + nearbyEnemies[0].getType().bodyRadius)
+							< myRadius + GameConstants.INTERACTION_DIST_FROM_EDGE + nearbyEnemies[0].getType().bodyRadius &&
+							nearbyEnemies[0].getType() != RobotType.ARCHON)
 					{
 						rc.strike();
 					}
