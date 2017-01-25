@@ -34,6 +34,7 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_MAP_START_X = 127;
 	public static final int CHANNEL_MAP_START_Y = 128;
 	public static final int CHANNEL_VP_WIN = 129;
+	public static final int CHANNEL_IS_SCOUT_USEFUL = 130;
 
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -879,10 +880,10 @@ public strictfp class RobotPlayer {
 
 		if (isGardener)
 		{
-//			if (round - lastScoutBuildTime > SCOUT_BUILD_INTERVAL && trees >= 2)
-//			{
-//				attemptBuild(10, RobotType.SCOUT);
-//			}
+			if (rc.readBroadcastBoolean(CHANNEL_IS_SCOUT_USEFUL) && rc.readBroadcast(CHANNEL_LAST_SCOUT_BUILD_TIME) == 0)
+			{
+				attemptBuild(10, RobotType.SCOUT);
+			}
 			if (rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5) && ((!wantSoldier && !wantLumberjack) || trees >= 5))
 			{
 				rc.setIndicatorDot(myLocation, 0, 255, 0);
@@ -1681,9 +1682,15 @@ public strictfp class RobotPlayer {
 			nearbyTrees = rc.senseNearbyTrees();
 		}
 		for (TreeInfo ti : nearbyTrees)
-			if (ti.getContainedRobot() != null) {
-				writePoint(CHANNEL_CHOPPABLE_TREE, ti.getLocation());
+		{
+//			if (ti.getContainedRobot() != null) {
+//				writePoint(CHANNEL_CHOPPABLE_TREE, ti.getLocation());
+//			}
+			if (ti.containedBullets > 0)
+			{
+				rc.broadcastBoolean(CHANNEL_IS_SCOUT_USEFUL, true);
 			}
+		}
 		leftBound = rc.readBroadcastFloat(CHANNEL_MAP_LEFT);
 		rightBound = rc.readBroadcastFloat(CHANNEL_MAP_RIGHT);
 		bottomBound = rc.readBroadcastFloat(CHANNEL_MAP_BOTTOM);
@@ -1882,7 +1889,7 @@ public strictfp class RobotPlayer {
 			rc.broadcastInt(CHANNEL_THEIR_BASE, 0);
 		}
 		archons = rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_ARCHONS));
-		if (round > 5 && archons == 0 && rc.getTeamVictoryPoints() <= rc.getOpponentVictoryPoints() + 2)
+		if (round > 400 && archons == 0 && rc.getTeamVictoryPoints() <= rc.getOpponentVictoryPoints() + 2 && rc.getTreeCount() == 0)
 		{
 			donate();
 		}
