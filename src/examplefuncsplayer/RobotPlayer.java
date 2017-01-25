@@ -1346,6 +1346,7 @@ public strictfp class RobotPlayer {
 	
 	static void adHocPathfind(int myX, int myY) throws GameActionException
 	{
+		relayInfo(2000);
 		MapLocation them = myTarget();
 		resetHistory();
 		attractor = null;
