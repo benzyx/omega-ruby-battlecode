@@ -1860,6 +1860,12 @@ public strictfp class RobotPlayer {
 		{
 			findEasyTargets();
 			trees = rc.getTreeCount();
+			if (nearbyTrees.length > 40)
+			{
+				TreeInfo[] arr = new TreeInfo[40];
+				System.arraycopy(nearbyTrees, 0, arr, 0, 40);
+				nearbyTrees = arr;
+			}
 		}
 		else if (isLumberjack)
 		{
