@@ -88,6 +88,7 @@ public strictfp class RobotPlayer {
 	static boolean skipToNextRound;
 	static MapLocation choppableTree;
 	static MapLocation theirBase;
+	static MapLocation repeller;
 	
 	static int retHelper1, retHelper2;
 
@@ -904,6 +905,10 @@ public strictfp class RobotPlayer {
 		{
 			ret += 1000 * loc.distanceTo(beacons[beaconLen - 1]);			
 		}
+		if (repeller != null)
+		{
+			ret -= 1200 * loc.distanceTo(repeller);
+		}
 		
 		if (isScout)
 		{
@@ -1340,6 +1345,7 @@ public strictfp class RobotPlayer {
 	{
 		MapLocation them = myTarget();
 		resetHistory();
+		repeller = null;
 		if (dfsWrapped(myX, myY, (int) them.x, (int) them.y))
 		{
 			for (int a = 0, b = beaconLen - 1; a < b; a++, b--)
@@ -1351,6 +1357,7 @@ public strictfp class RobotPlayer {
 		}
 		else
 		{
+			repeller = myLocation;
 			beacons[0] = myTarget();
 			beaconLen = 1;
 		}
