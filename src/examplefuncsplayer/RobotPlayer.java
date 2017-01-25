@@ -1193,6 +1193,18 @@ public strictfp class RobotPlayer {
 		}
 		return ret;
 	}
+	
+	static MapLocation toward(MapLocation a, MapLocation b, float d)
+	{
+		if (a.distanceTo(b) <= d)
+		{
+			return b;
+		}
+		else
+		{
+			return a.add(a.directionTo(b), d);
+		}
+	}
 
 	static int importantBulletIndex;
 
