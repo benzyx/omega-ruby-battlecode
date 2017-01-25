@@ -925,7 +925,7 @@ public strictfp class RobotPlayer {
 			}
 		}
 
-		if (!isGardener && !isArchon && !isScout)
+		if (!isGardener && !isArchon)
 		{
 			for (RobotInfo info : nearbyEnemies)
 			{
@@ -1028,6 +1028,10 @@ public strictfp class RobotPlayer {
 				}
 			}    		
 		}
+//		if (reflection != null)
+//		{
+//			ret += 20000 * loc.distanceTo(reflection);
+//		}
 		
 		if (!bruteDefence && !isArchon)
 		{
@@ -1163,20 +1167,36 @@ public strictfp class RobotPlayer {
 	
 	public static float getIdealDistanceMultiplier(RobotType t)
 	{
-		switch (t) {
-		case LUMBERJACK:
-			return 2000;
-		case GARDENER:
-			return 3000;
-		case ARCHON:
-			return theirSpawns.length == 1 ? 1500 : -100;
-		case SOLDIER:
-		case TANK:
-			return 2500;
-		case SCOUT:
-			return freeRange ? 0 : 500;
-		default:
-			return 0;
+		if (isScout)
+		{
+			switch (t) {
+			case LUMBERJACK:
+			case SOLDIER:
+			case TANK:
+				return 3000;
+			case SCOUT:
+				return 50;
+			default:
+				return 0;
+			}
+		}
+		else
+		{
+			switch (t) {
+			case LUMBERJACK:
+				return 2000;
+			case GARDENER:
+				return 3000;
+			case ARCHON:
+				return theirSpawns.length == 1 ? 1500 : -100;
+			case SOLDIER:
+			case TANK:
+				return 2500;
+			case SCOUT:
+				return freeRange ? 0 : 500;
+			default:
+				return 0;
+			}
 		}
 	}
 
