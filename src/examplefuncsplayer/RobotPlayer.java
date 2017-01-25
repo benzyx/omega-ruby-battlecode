@@ -200,16 +200,7 @@ public strictfp class RobotPlayer {
 						currentTarget = theirSpawns[retargetCount % theirSpawns.length];
 						if (myLocation.distanceTo(currentTarget) < 4)
 						{
-							boolean anyGardener = false;
-							for (RobotInfo info : nearbyEnemies)
-							{
-								if (info.getType() == RobotType.GARDENER)
-								{
-									anyGardener = true;
-									break;
-								}
-							}
-							if (!anyGardener)
+							if (!canSeeValuableTargets())
 							{
 								++retargetCount;
 							}
@@ -453,6 +444,24 @@ public strictfp class RobotPlayer {
 			}
 		}
 	}
+	
+	private static boolean canSeeValuableTargets()
+	{
+		for (RobotInfo info : nearbyEnemies)
+		{
+			switch (info.getType())
+			{
+			case GARDENER:
+			case SOLDIER:
+			case LUMBERJACK:
+			case TANK:
+			case ARCHON:
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	public static void smartShot(Direction dir, RobotType enemyType, float enemyDistance) throws GameActionException{
 		if (dir == null) return;
 
@@ -1919,7 +1928,7 @@ public strictfp class RobotPlayer {
 				}
 			}
 		}
-		else if (myLocation.distanceTo(theirBase) < 3 && nearbyEnemies.length == 0)
+		else if (myLocation.distanceTo(theirBase) < 3 && !canSeeValuableTargets())
 		{
 			rc.broadcastInt(CHANNEL_THEIR_BASE, 0);
 		}
