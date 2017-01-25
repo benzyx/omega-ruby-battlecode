@@ -932,7 +932,7 @@ public strictfp class RobotPlayer {
 				float d = info.getLocation().distanceTo(loc);
 				if (d < 7)
 				{
-					ret += 2000 * (long) d * getIdealDistanceMultiplier(info.getType());
+					ret -= 2000 * (long) d * getIdealDistanceMultiplier(info.getType());
 				}
 			}
 		}
@@ -1391,7 +1391,7 @@ public strictfp class RobotPlayer {
 		if (isScout)
 		{
 			beaconLen = 1;
-			beacons[0] = currentTarget();
+			beacons[0] = currentTarget;
 		}
 		else if (checkBlocked() && freeRange)
 		{
