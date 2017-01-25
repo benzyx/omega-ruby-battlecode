@@ -474,7 +474,7 @@ public strictfp class RobotPlayer {
 			return;
 		}
 		int trees = rc.getTreeCount();
-		if (enemyType == RobotType.ARCHON && trees < 3)
+		if (enemyType == RobotType.ARCHON && trees < 3 && round < 750)
 		{
 			return;
 		}
@@ -644,7 +644,7 @@ public strictfp class RobotPlayer {
 			if (best != null)
 			{
 				treeBuildTarget = best;
-				MapLocation spot = best.add(best.directionTo(myLocation), GameConstants.BULLET_TREE_RADIUS + myRadius);
+				MapLocation spot = best.add(best.directionTo(myLocation), GameConstants.BULLET_TREE_RADIUS + myRadius + GameConstants.GENERAL_SPAWN_OFFSET);
 				if (spot.distanceTo(myLocation) < myStride && rc.canMove(spot) && !rc.hasMoved())
 				{
 					rc.move(spot);
