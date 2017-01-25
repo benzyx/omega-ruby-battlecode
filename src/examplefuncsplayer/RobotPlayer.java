@@ -473,7 +473,7 @@ public strictfp class RobotPlayer {
 		{
 			return;
 		}
-		if (rc.canFirePentadShot() && enemyDistance < 4.2f)
+		if (rc.canFirePentadShot() && (enemyDistance < 4.2f || rc.getTreeCount() >= 5))
 		{
 			rc.firePentadShot(dir);
 		}
@@ -805,7 +805,7 @@ public strictfp class RobotPlayer {
 			}
 		}
 		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
-				gardeners <= 2 && rc.getTeamBullets() > 125)
+				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners < round / 50)
 		{
 			wantGardener = true;
 		}
@@ -814,7 +814,7 @@ public strictfp class RobotPlayer {
 		boolean wantSoldier = false;
 		if (rc.readBroadcastBoolean(CHANNEL_CRAMPED))
 		{
-			if (lumberjacks < 2)
+			if (lumberjacks < 2 && lumberjacks < trees)
 			{
 				wantLumberjack = true;
 			}
@@ -847,7 +847,7 @@ public strictfp class RobotPlayer {
 //			{
 //				attemptBuild(10, RobotType.SCOUT);
 //			}
-			if (soldiers >= 1 && rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5) && !wantSoldier && !wantLumberjack)
+			if (rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5) && ((!wantSoldier && !wantLumberjack) || trees >= 5))
 			{
 				rc.setIndicatorDot(myLocation, 0, 255, 0);
 				attemptBuild(10, RobotType.ARCHON); // plant a tree
@@ -869,8 +869,6 @@ public strictfp class RobotPlayer {
 		RobotType[] buildOrder = 
 			{
 				RobotType.SCOUT,
-				RobotType.ARCHON,
-				RobotType.ARCHON
 			};
 		if (index >= buildOrder.length)
 		{
@@ -976,7 +974,19 @@ public strictfp class RobotPlayer {
 			}
 		}
 
-		if (!ignoreFriendRepulsion)
+		if (isArchon)
+		{
+			for (RobotInfo info : nearbyFriends)
+			{
+				float range = REPULSION_RANGE;
+				float d = info.getLocation().distanceTo(loc) - myRadius - info.getType().bodyRadius;
+				if (d < range)
+				{
+					ret += 100000 * (1 / (0.01f + d / range));
+				}
+			}
+		}
+		else if (!ignoreFriendRepulsion)
 		{
 			for (RobotInfo info : nearbyFriends)
 			{
@@ -1245,7 +1255,7 @@ public strictfp class RobotPlayer {
 		{
 			return true;
 		}
-		if (myLocation.distanceTo(new MapLocation(x, y)) > 2 && getStatusWithBounds(x, y) == STATUS_IMPASSABLE)
+		if (getStatusWithBounds(x, y) == STATUS_IMPASSABLE)
 		{
 			return false;
 		}
@@ -1256,9 +1266,9 @@ public strictfp class RobotPlayer {
 		}
 		s += " ";
 		s += k;
-		beacons[beaconLen++] = new MapLocation(x, y);
-//		rc.setIndicatorLine(myLocation, beacons[beaconLen - 1], 0, 255, 0);
-//		rc.setIndicatorLine(beacons[beaconLen - 1], ttarg, 0, 127, 0);
+		beacons[beaconLen] = new MapLocation(x, y);
+		rc.setIndicatorLine(myLocation, beacons[beaconLen], 0, 255, 0);
+		++beaconLen;
 		float[] d = new float[4];
 		boolean[] done = new boolean[4];
 		for (int i = 0; i < 4; i++)
@@ -1341,41 +1351,52 @@ public strictfp class RobotPlayer {
 		{
 			--beaconLen;
 		}
-		if (beaconLen > 1)
+		if (beaconLen > 1 && !isArchon)
 		{
 			ignoreFriendRepulsion = true;
 		}
-		for (int i = 0; i + 1 < beaconLen; i++)
-		{
-			rc.setIndicatorLine(beacons[i], beacons[i+1], 255, 255, 255);
-		}
+//		for (int i = 0; i + 1 < beaconLen; i++)
+//		{
+//			rc.setIndicatorLine(beacons[i], beacons[i+1], 255, 255, 255);
+//		}
 		if (checkBlocked() && freeRange)
 		{
 			int myX = (int) (0.5f + myLocation.x);
 			int myY = (int) (0.5f + myLocation.y);
 			adHocPathfind(myX, myY);
 		}
-		else if (beaconLen == 0)
+		else if (beaconLen <= 1)
 		{
-			beaconLen = 1;
-			beacons[0] = myTarget();
-		}
-		rc.setIndicatorLine(myLocation, beacons[beaconLen - 1], 255, 127, 0);
-		for (int i = 0; i < history.length; i++)
-		{
-			if (history[i] == null)
+			MapLocation best = myLocation;
+			int bestDist = INFINITY;
+			int myX = (int) (0.5f + myLocation.x);
+			int myY = (int) (0.5f + myLocation.y);
+			if (theirBaseFound() && readConsumerBFSDistance(myX, myY) < INFINITY && myTarget().distanceTo(theirBase) < 4)
 			{
-				System.out.println(history[i]);
+				for (int i = 0; i < 8; i++)
+				{
+					int nx = myX + dx[i];
+					int ny = myY + dy[i];
+					int d = readConsumerBFSDistance(nx, ny);
+					if (d < bestDist)
+					{
+						bestDist = d;
+						best = new MapLocation(nx, ny);
+					}
+				}
+			}
+
+			if (best.distanceTo(myLocation) > 1)
+			{
+				beacons[0] = best;
 			}
 			else
 			{
-				System.out.println(myLocation.distanceTo(history[i]));
+				beacons[0] = myTarget();
 			}
+			beaconLen = 1;
 		}
-		if (round >= 800)
-		{
-			rc.resign();
-		}
+//		rc.setIndicatorLine(myLocation, beacons[beaconLen - 1], 255, 127, 0);
 	}
 
 	static MapLocation opti;
@@ -1712,10 +1733,14 @@ public strictfp class RobotPlayer {
 				freeRange = true;
 			}
 		}
+		if (isLumberjack && freeRange && !noNeutralTrees())
+		{
+			freeRange = false;
+		}
 		debug_highlightGrid();
 		if (isArchon && myID == 0)
 		{
-			if (round == 15 || (round % 100 == 0 && rc.readBroadcastBoolean(CHANNEL_CRAMPED)))
+			if (round == 8 || (round % 100 == 0 && rc.readBroadcastBoolean(CHANNEL_CRAMPED)))
 			{
 				if (round > 200)
 				{
@@ -1756,7 +1781,7 @@ public strictfp class RobotPlayer {
 		{
 			burnCycles(Clock.getBytecodesLeft() / 2 - 500);
 		}
-		else if (nearbyEnemies.length == 0 && nearbyBullets.length == 0)
+		else if (!isGardener && nearbyEnemies.length == 0 && nearbyBullets.length == 0)
 		{
 			burnCycles(Clock.getBytecodesLeft() / 4);
 		}
@@ -1940,7 +1965,7 @@ public strictfp class RobotPlayer {
 	
 	static boolean isBFSActive()
 	{
-		return false;
+		return round >= 300;
 	}
 	
 	static void bfsStep() throws GameActionException
@@ -2043,7 +2068,7 @@ public strictfp class RobotPlayer {
 			rc.setIndicatorDot(theirBase, 255, 255, 255);
 		}
 
-		if (round % 100 != 14)
+		if (round % 100 != 9)
 		{
 			return; // this code lags the client
 		}
@@ -2096,7 +2121,7 @@ public strictfp class RobotPlayer {
 			{
 				return false;
 			}
-			if (history[i].distanceTo(myLocation) > 0.5f)
+			if (history[i].distanceTo(myLocation) > 2)
 			{
 				return false;
 			}
