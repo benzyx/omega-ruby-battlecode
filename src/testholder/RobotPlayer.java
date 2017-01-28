@@ -469,7 +469,7 @@ public strictfp class RobotPlayer {
 		for(RobotInfo info : nearbyFriends){
 			if (info.getLocation().distanceTo(myLocation) < enemyDistance && willCollideWithTarget(myLocation, dir, info)){
 				friendlyFireSpot = true;
-				rc.setIndicatorDot(myLocation, 255, 255, 0);
+//				rc.setIndicatorDot(myLocation, 255, 255, 0);
 				return; // friendly fire straight up
 			}
 
@@ -831,102 +831,14 @@ public strictfp class RobotPlayer {
 	public static void macro() throws GameActionException
 	{
 		debug_printMacroStats();
-
-		boolean wantGardener = false;
-		if (gardeners < trees / 5 + 1 || (rc.getTeamBullets() > 350 && gardeners < trees / 2)) // indicates some kind of blockage
+		if (rc.readBroadcast(CHANNEL_THING_BUILD_COUNT) == 1)
 		{
-			if (gardeners > 0 || (rc.getTeamBullets() >= 300 && round == 1))
-			{
-				wantGardener = true;
-			}
-		}
-		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
-				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners < round / 50)
-		{
-			wantGardener = true;
-		}
-		
-		if (rc.getTeamVictoryPoints() +
-				(rc.getTeamBullets() + trees * 200) / rc.getVictoryPointCost()
-				> GameConstants.VICTORY_POINTS_TO_WIN)
-		{
-			rc.broadcastBoolean(CHANNEL_VP_WIN, true);
-		}
-		if (rc.readBroadcastBoolean(CHANNEL_VP_WIN))
-		{
-			donate();
-		}
-
-		boolean wantLumberjack = false;
-		boolean wantSoldier = false;
-		if (rc.readBroadcastBoolean(CHANNEL_CRAMPED))
-		{
-			if (lumberjacks < 2 && lumberjacks < trees)
-			{
-				wantLumberjack = true;
-			}
-		}
-		else
-		{
-			if (soldiers < 2 || soldiers < trees / 2)
-			{
-				wantSoldier = true;
-			}
-		}
-		if (nearbyEnemies.length > 0)
-		{
-			if (!anyFriendHasType(RobotType.SOLDIER))
-			{
-				wantSoldier = true;
-			}
-		}
-
-		if (isArchon)
-		{
-			if (wantGardener)
-			{
-				rc.setIndicatorDot(myLocation, 0, 0, 0);
-				if (!attemptBuild(10, RobotType.GARDENER) && gardeners == 0)
-					rc.broadcast(CHANNEL_INITIAL_ARCHON_BLOCKED, 1);
-			}
-		}
-
-		if (isGardener)
-		{
-			if (rc.readBroadcastInt(CHANNEL_THING_BUILD_COUNT) == 2 && isRobotInNearbyTree()){
-				attemptBuild(10, RobotType.LUMBERJACK);
-			}
-			if (rc.readBroadcastBoolean(CHANNEL_IS_SCOUT_USEFUL) && rc.readBroadcast(CHANNEL_LAST_SCOUT_BUILD_TIME) == 0)
-			{
-				attemptBuild(10, RobotType.SCOUT);
-			}
-			if (rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5) && ((!wantSoldier && !wantLumberjack) || trees >= 5))
-			{
-				rc.setIndicatorDot(myLocation, 0, 255, 0);
-				attemptBuild(10, RobotType.ARCHON); // plant a tree
-			}
-			if (wantSoldier)
-			{
-				attemptBuild(10, RobotType.SOLDIER);
-			}
-			if (wantLumberjack)
-			{
-				attemptBuild(10, RobotType.LUMBERJACK);
-			}
-		}
-	}
-	
-	private static void debug_ensureGardener()
-	{
-		if (!isGardener)
-		{
-			throw new RuntimeException();
+			attemptBuild(10, RobotType.SOLDIER);
 		}
 	}
 
 	private static boolean isRobotInNearbyTree()
 	{
-		debug_ensureGardener();
 		for (TreeInfo info : neutralTrees)
 		{
 			if (info.containedRobot != null)
@@ -1193,6 +1105,18 @@ public strictfp class RobotPlayer {
 		}
 		return ret;
 	}
+	
+	static MapLocation toward(MapLocation a, MapLocation b, float d)
+	{
+		if (a.distanceTo(b) <= d)
+		{
+			return b;
+		}
+		else
+		{
+			return a.add(a.directionTo(b), d);
+		}
+	}
 
 	static int importantBulletIndex;
 
@@ -1401,7 +1325,7 @@ public strictfp class RobotPlayer {
 		s += " ";
 		s += k;
 		beacons[beaconLen] = new MapLocation(x, y);
-		rc.setIndicatorLine(myLocation, beacons[beaconLen], 0, 255, 0);
+//		rc.setIndicatorLine(myLocation, beacons[beaconLen], 0, 255, 0);
 		++beaconLen;
 		float[] d = new float[4];
 		boolean[] done = new boolean[4];
