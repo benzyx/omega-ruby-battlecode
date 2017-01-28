@@ -802,7 +802,7 @@ public strictfp class RobotPlayer {
 			}
 		}
 		else{
-			macro();
+//			macro();
 		}
 
 		float lowestHP = 99999;
