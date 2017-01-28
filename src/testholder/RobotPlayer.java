@@ -831,6 +831,10 @@ public strictfp class RobotPlayer {
 	public static void macro() throws GameActionException
 	{
 		debug_printMacroStats();
+		if (rc.readBroadcast(CHANNEL_THING_BUILD_COUNT) == 0)
+		{
+			attemptBuild(10, RobotType.GARDENER);
+		}
 		if (rc.readBroadcast(CHANNEL_THING_BUILD_COUNT) == 1)
 		{
 			attemptBuild(10, RobotType.SOLDIER);

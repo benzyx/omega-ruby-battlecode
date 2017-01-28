@@ -172,10 +172,6 @@ public strictfp class RobotPlayer {
 					continue;
 				}
 				destination = readPoint(CHANNEL_RALLY_POINT);
-				if (freeRange && theirSpawns == null)
-				{
-					theirSpawns = rc.getInitialArchonLocations(myTeam.opponent());
-				}
 				switch (myType)
 				{
 				case GARDENER:
@@ -713,6 +709,30 @@ public strictfp class RobotPlayer {
 
 		return false;
 	}
+	
+	private static RobotInfo closestEnemyOfType(RobotType t)
+	{
+		for (RobotInfo info : nearbyEnemies)
+		{
+			if (info.getType() == t)
+			{
+				return info;
+			}
+		}
+		return null;
+	}
+	
+	private static RobotInfo closestFriendOfType(RobotType t)
+	{
+		for (RobotInfo info : nearbyFriends)
+		{
+			if (info.getType() == t)
+			{
+				return info;
+			}
+		}
+		return null;
+	}
 
 	private static boolean onTreeBuildFail() throws GameActionException
 	{
@@ -765,8 +785,51 @@ public strictfp class RobotPlayer {
 		rc.donate((int) (rc.getTeamBullets() / rc.getVictoryPointCost()) * rc.getVictoryPointCost());
 	}
 	
-	static MapLocation myTarget()
+	static MapLocation findTarget()
 	{
+		ignoreFriendRepulsion = false;
+		if (isArchon)
+		{
+			RobotInfo soldier = closestEnemyOfType(RobotType.SOLDIER);
+			RobotInfo gardener = closestFriendOfType(RobotType.GARDENER);
+			if (soldier != null && gardener != null)
+			{
+				ignoreFriendRepulsion = true;
+				MapLocation a = soldier.getLocation();
+				MapLocation b = gardener.getLocation();
+				return a.add(
+						a.directionTo(b),
+						soldier.type.bodyRadius + myRadius + 0.001f); 
+								
+			}
+			else
+			{
+				return theirSpawns[0];
+			}
+		}
+		if (isGardener)
+		{
+			RobotInfo soldier = closestEnemyOfType(RobotType.SOLDIER);
+			RobotInfo archon = closestFriendOfType(RobotType.ARCHON);
+			if (archon != null)
+			{
+				ignoreFriendRepulsion = true;
+				MapLocation a;
+				if (soldier != null)
+				{
+					a = soldier.getLocation();
+				}
+				else
+				{
+					a = theirSpawns[0];
+				}
+				MapLocation b = archon.getLocation();
+				MapLocation c = myLocation;
+				return b.add(
+						a.directionTo(b),
+						archon.type.bodyRadius + myRadius + 0.001f + archon.type.strideRadius);
+			}
+		}
 		return freeRange ? currentTarget : destination;
 	}
 
@@ -840,11 +903,11 @@ public strictfp class RobotPlayer {
 				wantGardener = true;
 			}
 		}
-		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
-				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners < round / 50)
-		{
-			wantGardener = true;
-		}
+//		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
+//				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners < round / 50)
+//		{
+//			wantGardener = true;
+//		}
 		
 		if (rc.getTeamVictoryPoints() +
 				(rc.getTeamBullets() + trees * 200) / rc.getVictoryPointCost()
@@ -971,35 +1034,16 @@ public strictfp class RobotPlayer {
 	{
 		long ret = 0;
 
-		// Scout code: Look for trees and shake 'em
-		switch (myType)
-		{
-		case SCOUT:
-		case LUMBERJACK:
-			if (closestTree != null)
-			{
-				if (!isLumberjack || (!freeRange && nearbyEnemies.length == 0))
-				{
-					ret += closestTree.getLocation().distanceTo(loc) * 10000000;
-				}
-			}
-			break;
-		case ARCHON:
-			if (closestTree != null && round < 50)
-			{
-				ret += closestTree.getLocation().distanceTo(loc) * 10000;
-			}
-		default:;
-		}
-
-		if (beaconLen != 0)
-		{
-			ret += 1000 * loc.distanceTo(beacons[beaconLen - 1]);			
-		}
-		if (attractor != null)
-		{
-			ret += 1200 * loc.distanceTo(attractor);
-		}
+//		if (beaconLen != 0)
+//		{
+//			ret += 1000 * loc.distanceTo(beacons[beaconLen - 1]);			
+//		}
+//		if (attractor != null)
+//		{
+//			ret += 1200 * loc.distanceTo(attractor);
+//		}
+		
+		ret += 1000 * loc.distanceTo(cachedTarget);
 		
 		if (isScout)
 		{
@@ -1058,7 +1102,7 @@ public strictfp class RobotPlayer {
 			}
 		}
 
-		if (isGardener)
+		if (isGardener && !ignoreFriendRepulsion)
 		{
 			long count = 0;
 			long tot = 0;
@@ -1087,7 +1131,7 @@ public strictfp class RobotPlayer {
 			}
 		}
 
-		if (isArchon)
+		if (isArchon && !ignoreFriendRepulsion)
 		{
 			for (RobotInfo info : nearbyFriends)
 			{
@@ -1130,7 +1174,7 @@ public strictfp class RobotPlayer {
 				}
 			}
 		}
-		if (isArchon)
+		if (isArchon && !ignoreFriendRepulsion)
 		{
 			for (TreeInfo info : nearbyTrees)
 			{
@@ -1146,7 +1190,7 @@ public strictfp class RobotPlayer {
 //			ret += 20000 * loc.distanceTo(reflection);
 //		}
 		
-		if (!bruteDefence && !isArchon)
+		if (!bruteDefence && !isArchon && !isGardener)
 		{
 			ret += bulletDodgeWeight(loc);
 		}
@@ -1458,7 +1502,7 @@ public strictfp class RobotPlayer {
 	static void adHocPathfind(int myX, int myY) throws GameActionException
 	{
 		relayInfo(2000);
-		MapLocation them = myTarget();
+		MapLocation them = cachedTarget;
 		resetHistory();
 		attractor = null;
 		if (dfsWrapped(myX, myY, (int) them.x, (int) them.y))
@@ -1473,7 +1517,7 @@ public strictfp class RobotPlayer {
 		else
 		{
 			attractor = myLocation.add(randomDirection(), 100);
-			beacons[0] = myTarget();
+			beacons[0] = cachedTarget;
 			beaconLen = 1;
 		}
 		if (Clock.getBytecodesLeft() < 2000 || rc.getRoundNum() != round)
@@ -1527,7 +1571,7 @@ public strictfp class RobotPlayer {
 			int bestDist = INFINITY;
 			int myX = (int) (0.5f + myLocation.x);
 			int myY = (int) (0.5f + myLocation.y);
-			if (theirBaseFound() && readConsumerBFSDistance(myX, myY) < INFINITY && myTarget().distanceTo(theirBase) < 4)
+			if (theirBaseFound() && readConsumerBFSDistance(myX, myY) < INFINITY && cachedTarget.distanceTo(theirBase) < 4)
 			{
 				for (int i = 0; i < 8; i++)
 				{
@@ -1548,7 +1592,7 @@ public strictfp class RobotPlayer {
 			}
 			else
 			{
-				beacons[0] = myTarget();
+				beacons[0] = cachedTarget;
 			}
 			beaconLen = 1;
 		}
@@ -1556,9 +1600,11 @@ public strictfp class RobotPlayer {
 	}
 
 	static MapLocation opti;
+	static MapLocation cachedTarget;
 
 	public static void selectOptimalMove() throws GameActionException
 	{
+		cachedTarget = findTarget();
 		debug_johnMadden();
 		preprocessBullets();
 		findBeacon();
@@ -1601,78 +1647,39 @@ public strictfp class RobotPlayer {
 			}
 			else
 			{
-				add = myStride * rand() / 360;
+				add = myStride * rand() / 360.0f;
 			}
-			MapLocation cand = myLocation.add(randomDirection(), add);
-			if (iterations == 0)
+			MapLocation cand;
+			switch (iterations)
 			{
-				if (reflection != null)
+			case 0:
+				cand = myLocation;
+				break;
+			case 1:
+				cand = toward(myLocation, cachedTarget, myStride);
+				break;
+			case 2:
+				if (nearbyBullets.length != 0)
 				{
-					if (myLocation.distanceTo(reflection) < myStride)
-					{
-						cand = reflection;
-					}
-					else
-					{
-						cand = myLocation.add(myLocation.directionTo(reflection), myStride);
-					}
+					cand = myLocation.add(nearbyBullets[0].dir.rotateLeftDegrees(90), myStride);
 				}
 				else
 				{
-					cand = myLocation;
+					cand = myLocation.add(randomDirection(), add);
 				}
-			}
-			else if (iterations == 1 && nearbyBullets.length > 0)
-			{
-				cand = myLocation.add(nearbyBullets[0].dir, myStride);
-			}
-			else if (dominated != null)
-			{
-				MapLocation them = dominated.getLocation();
-				switch (iterations)
+				break;
+			case 3:
+				if (nearbyBullets.length != 0)
 				{
-				case 4:
-					MapLocation ncand = them.add(them.directionTo(myLocation), dominated.type.bodyRadius + myRadius + 0.001f);
-					if (myLocation.distanceTo(ncand) < myStride)
-					{
-						cand = ncand;
-					}
-					else
-					{
-						cand = myLocation.add(myLocation.directionTo(them), myStride);
-					}
-					break;
-				case 2:
-				case 3:
-					float a = myStride - 0.001f;
-					float b = myRadius + dominated.type.bodyRadius + 0.001f;
-					float c = myLocation.distanceTo(dominated.getLocation());
-					float q = (c * c + a * a - b * b) / (2 * c * a);
-					if (Math.abs(q) <= 1)
-					{
-						float angle = (float) Math.acos(q);
-						if (iterations == 2)
-						{
-							cand = myLocation.add(myLocation.directionTo(dominated.getLocation()).rotateLeftRads(angle), a);
-						}
-						else
-						{
-							cand = myLocation.add(myLocation.directionTo(dominated.getLocation()).rotateLeftRads(-angle), a);							
-						}
-					}
-					break;
-				}
-			}
-			else if (iterations == 2 && currentTarget != null)
-			{
-				if (isScout && closestTree != null)
-				{
-					cand = myLocation.add(myLocation.directionTo(closestTree.getLocation()), myStride);
+					cand = myLocation.add(nearbyBullets[0].dir.rotateRightDegrees(90), myStride);
 				}
 				else
 				{
-					cand = myLocation.add(myLocation.directionTo(currentTarget), myStride);
+					cand = myLocation.add(randomDirection(), add);
 				}
+				break;
+			default:
+				cand = myLocation.add(randomDirection(), add);
 			}
 			if (rc.canMove(cand))
 			{
