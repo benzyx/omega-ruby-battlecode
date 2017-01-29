@@ -93,6 +93,8 @@ public strictfp class RobotPlayer {
 	static MapLocation theirBase;
 	static MapLocation attractor;
 	static int lastAttackRound;
+	static MapLocation closestThreat;
+	static boolean canSeeThreat;
 	
 	static int retHelper1, retHelper2;
 
@@ -620,7 +622,7 @@ public strictfp class RobotPlayer {
 	}
 
 	// When the type parameter is ARCHON, we build a TREE instead.
-	public static boolean attemptBuild(int iter, RobotType type) throws GameActionException
+	public static boolean attemptBuild(RobotType type) throws GameActionException
 	{
 		if (type == RobotType.ARCHON){
 			if (rc.getTeamBullets() < 50 || !rc.hasTreeBuildRequirements())
@@ -657,6 +659,10 @@ public strictfp class RobotPlayer {
 					{
 						rc.plantTree(dir);
 						increment(CHANNEL_THING_BUILD_COUNT);
+						if (trees == 0)
+						{
+							writePoint(CHANNEL_RALLY_POINT, myLocation);
+						}
 						return true;
 					}
 					else
@@ -680,34 +686,62 @@ public strictfp class RobotPlayer {
 			{
 				return false;
 			}
-			for (int i = 0; i < iter; i++)
+			float bestValue = 0;
+			Direction bestDir = null;
+			for (int i = 0; i < 10; i++)
 			{
-				Direction dir;
-				if (i == 0)
-				{
-					dir = myLocation.directionTo(theirSpawns[0]);
-				}
-				else
-				{
-					dir = randomDirection();
-				}
+				Direction dir = randomDirection();
 				if (rc.canBuildRobot(type, dir)){
-					rc.buildRobot(type, dir);
-					if (type == RobotType.SCOUT)
+					MapLocation loc = myLocation.add(dir, myRadius + type.bodyRadius + GameConstants.GENERAL_SPAWN_OFFSET);
+					float v = evaluateBuildGoodness(loc);
+					if (bestDir == null || v > bestValue)
 					{
-						rc.broadcast(CHANNEL_LAST_SCOUT_BUILD_TIME, round);
+						bestValue = v;
+						bestDir = dir;
 					}
-					if (type == RobotType.GARDENER && gardeners == 0)
-					{
-						writePoint(CHANNEL_RALLY_POINT, myLocation);
-					}
-					increment(CHANNEL_THING_BUILD_COUNT);
-					return true;
 				}
 			}
+			if (bestDir == null)
+			{
+				return false;
+			}
+			else
+			{
+				executeBuild(bestDir, type);
+				return true;
+			}
 		}
-
 		return false;
+	}
+	
+	private static float evaluateBuildGoodness(MapLocation loc) throws GameActionException
+	{
+		float ret = 0;
+		
+		if (canSeeThreat)
+		{
+			ret += loc.distanceTo(closestThreat);
+		}
+		else
+		{
+			ret -= loc.distanceTo(closestThreat);			
+		}
+		
+		return ret;
+	}
+	
+	private static void executeBuild(Direction dir, RobotType type) throws GameActionException
+	{
+		rc.buildRobot(type, dir);
+		if (type == RobotType.SCOUT)
+		{
+			rc.broadcast(CHANNEL_LAST_SCOUT_BUILD_TIME, round);
+		}
+		if (type == RobotType.GARDENER && gardeners == 0)
+		{
+			writePoint(CHANNEL_RALLY_POINT, myLocation);
+		}
+		increment(CHANNEL_THING_BUILD_COUNT);
 	}
 	
 	private static RobotInfo closestEnemyOfType(RobotType t)
@@ -738,7 +772,7 @@ public strictfp class RobotPlayer {
 	{
 		if (neutralTrees.length >= 1)
 		{
-			return attemptBuild(10, RobotType.LUMBERJACK);
+			return attemptBuild(RobotType.LUMBERJACK);
 		}
 		else if (gardeners == 1)
 		{
@@ -802,7 +836,7 @@ public strictfp class RobotPlayer {
 						soldier.type.bodyRadius + myRadius + 0.001f); 
 								
 			}
-			else
+			else if (trees == 0)
 			{
 				return theirSpawns[0];
 			}
@@ -821,7 +855,7 @@ public strictfp class RobotPlayer {
 				}
 				else
 				{
-					a = theirSpawns[0];
+					a = closestThreat;
 				}
 				MapLocation b = archon.getLocation();
 				MapLocation c = myLocation;
@@ -860,12 +894,12 @@ public strictfp class RobotPlayer {
 
 		RobotType next = getBuildOrderNext(buildIndex);
 		if (next != null){
-			if (attemptBuild(10, next)){
+			if (attemptBuild(next)){
 				rc.broadcast(CHANNEL_BUILD_INDEX, buildIndex+1);
 			}
 		}
 		else{
-//			macro();
+			macro();
 		}
 
 		float lowestHP = 99999;
@@ -894,7 +928,7 @@ public strictfp class RobotPlayer {
 	public static void macro() throws GameActionException
 	{
 		debug_printMacroStats();
-
+		
 		boolean wantGardener = false;
 		if (gardeners < trees / 5 + 1 || (rc.getTeamBullets() > 350 && gardeners < trees / 2)) // indicates some kind of blockage
 		{
@@ -903,11 +937,11 @@ public strictfp class RobotPlayer {
 				wantGardener = true;
 			}
 		}
-//		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
-//				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners < round / 50)
-//		{
-//			wantGardener = true;
-//		}
+		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
+				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners < round / 50)
+		{
+			wantGardener = true;
+		}
 		
 		if (rc.getTeamVictoryPoints() +
 				(rc.getTeamBullets() + trees * 200) / rc.getVictoryPointCost()
@@ -949,7 +983,7 @@ public strictfp class RobotPlayer {
 			if (wantGardener)
 			{
 				rc.setIndicatorDot(myLocation, 0, 0, 0);
-				if (!attemptBuild(10, RobotType.GARDENER) && gardeners == 0)
+				if (!attemptBuild(RobotType.GARDENER) && gardeners == 0)
 					rc.broadcast(CHANNEL_INITIAL_ARCHON_BLOCKED, 1);
 			}
 		}
@@ -957,24 +991,24 @@ public strictfp class RobotPlayer {
 		if (isGardener)
 		{
 			if (rc.readBroadcastInt(CHANNEL_THING_BUILD_COUNT) == 2 && isRobotInNearbyTree()){
-				attemptBuild(10, RobotType.LUMBERJACK);
+				attemptBuild(RobotType.LUMBERJACK);
 			}
 			if (rc.readBroadcastBoolean(CHANNEL_IS_SCOUT_USEFUL) && rc.readBroadcast(CHANNEL_LAST_SCOUT_BUILD_TIME) == 0)
 			{
-				attemptBuild(10, RobotType.SCOUT);
+				attemptBuild(RobotType.SCOUT);
 			}
 			if (rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5) && ((!wantSoldier && !wantLumberjack) || trees >= 5))
 			{
 				rc.setIndicatorDot(myLocation, 0, 255, 0);
-				attemptBuild(10, RobotType.ARCHON); // plant a tree
+				attemptBuild(RobotType.ARCHON); // plant a tree
 			}
 			if (wantSoldier)
 			{
-				attemptBuild(10, RobotType.SOLDIER);
+				attemptBuild(RobotType.SOLDIER);
 			}
 			if (wantLumberjack)
 			{
-				attemptBuild(10, RobotType.LUMBERJACK);
+				attemptBuild(RobotType.LUMBERJACK);
 			}
 		}
 	}
@@ -1091,10 +1125,6 @@ public strictfp class RobotPlayer {
 					float ideal = getIdealDistance(info.getType());
 					if (ideal < 0)
 						continue;
-					if (isSoldier && bruteDefence)
-						ideal = 0;
-					if (isLumberjack)
-						ideal = 0;
 					d -= ideal;
 					d *= d;
 					ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
@@ -1183,7 +1213,26 @@ public strictfp class RobotPlayer {
 				{
 					ret += 1000 * (1 / (0.01f + d / REPULSION_RANGE));
 				}
+				else if (d - 1 > REPULSION_RANGE)
+				{
+					break;
+				}
 			}    		
+		}
+		if (isSoldier && round - lastAttackRound < 10)
+		{
+			for (TreeInfo info : nearbyTrees)
+			{
+				float d = info.getLocation().distanceTo(loc) - myRadius - info.radius;
+				if (d < 2)
+				{
+					ret += 1000 / (1 + d);
+				}
+				else if (d > 4)
+				{
+					break;
+				}
+			}
 		}
 //		if (reflection != null)
 //		{
@@ -1233,6 +1282,26 @@ public strictfp class RobotPlayer {
 			if (d < myRadius)
 			{
 				ret += BULLET_HIT_WEIGHT;
+			}
+			else
+			{
+				b = a.add(dir, 2 * bullet.speed);
+				if (angle > HALFPI)
+				{
+					d = a.distanceTo(loc);
+				}
+				else if (Math.abs(dir.radiansBetween(b.directionTo(loc))) < HALFPI)
+				{
+					d = b.distanceTo(loc);
+				}
+				else
+				{
+					d = (float) (a.distanceTo(loc) * Math.sin(angle));
+				}
+				if (d < myRadius - myStride)
+				{
+					ret += BULLET_HIT_WEIGHT;
+				}
 			}
 		}
 		return ret;
@@ -1598,6 +1667,38 @@ public strictfp class RobotPlayer {
 		}
 //		rc.setIndicatorLine(myLocation, beacons[beaconLen - 1], 255, 127, 0);
 	}
+	
+	static boolean goingTowardMe(BulletInfo info)
+	{
+		return Math.abs(info.dir.degreesBetween(info.location.directionTo(myLocation))) < 75;
+	}
+	
+	static MapLocation findMidpoint()
+	{
+		BulletInfo a = null, b = null;
+		for (BulletInfo info : nearbyBullets)
+		{
+			if (goingTowardMe(info))
+			{
+				if (a == null)
+				{
+					a = info;
+				}
+				else
+				{
+					b = info;
+					break;
+				}
+			}
+		}
+		if (b == null)
+		{
+			return null;
+		}
+		MapLocation q = a.location.add(a.dir, a.location.distanceTo(myLocation));
+		MapLocation r = b.location.add(b.dir, b.location.distanceTo(myLocation));
+		return new MapLocation((q.x + r.x) / 2, (q.y + r.y) / 2);
+	}
 
 	static MapLocation opti;
 	static MapLocation cachedTarget;
@@ -1605,6 +1706,7 @@ public strictfp class RobotPlayer {
 	public static void selectOptimalMove() throws GameActionException
 	{
 		cachedTarget = findTarget();
+		rc.setIndicatorLine(myLocation, cachedTarget, 255, 255, 255);
 		debug_johnMadden();
 		preprocessBullets();
 		findBeacon();
@@ -1629,7 +1731,7 @@ public strictfp class RobotPlayer {
 			after += 284 * (nearbyEnemies.length + 1);
 		}
 		int iterlim = 100;
-		if (isScout && nearbyBullets.length == 0 && freeRange && isScout && nearbyEnemies.length == 0)
+		if (isScout && nearbyBullets.length == 0 && freeRange && nearbyEnemies.length == 0)
 		{
 			iterlim = 5;
 		}
@@ -1678,6 +1780,17 @@ public strictfp class RobotPlayer {
 					cand = myLocation.add(randomDirection(), add);
 				}
 				break;
+//			case 4:
+//				cand = findMidpoint();
+//				if (cand == null)
+//				{
+//					cand = myLocation.add(randomDirection(), add);
+//				}
+//				else
+//				{
+//					rc.setIndicatorLine(myLocation, cand, 255, 127, 0);
+//				}
+//				break;
 			default:
 				cand = myLocation.add(randomDirection(), add);
 			}
@@ -1974,6 +2087,26 @@ public strictfp class RobotPlayer {
 		if (round > 400 && archons == 0 && rc.getTeamVictoryPoints() <= rc.getOpponentVictoryPoints() + 2 && rc.getTreeCount() == 0)
 		{
 			donate();
+		}
+		closestThreat = null;
+		canSeeThreat = false;
+		loop:
+		for (RobotInfo info : nearbyEnemies)
+		{
+			switch (info.getType())
+			{
+			case SOLDIER:
+			case LUMBERJACK:
+			case TANK:
+				closestThreat = info.location;
+				canSeeThreat = true;
+				break loop;
+			default: ;
+			}
+		}
+		if (closestThreat == null)
+		{
+			closestThreat = theirSpawns[0];
 		}
 		if (isArchon)
 		{
