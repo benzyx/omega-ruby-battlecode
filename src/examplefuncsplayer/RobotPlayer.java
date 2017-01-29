@@ -94,7 +94,6 @@ public strictfp class RobotPlayer {
 	static MapLocation attractor;
 	static int lastAttackRound;
 	static MapLocation closestThreat;
-	static boolean canSeeThreat;
 	
 	static int retHelper1, retHelper2;
 
@@ -659,10 +658,6 @@ public strictfp class RobotPlayer {
 					{
 						rc.plantTree(dir);
 						increment(CHANNEL_THING_BUILD_COUNT);
-						if (trees == 0)
-						{
-							writePoint(CHANNEL_RALLY_POINT, myLocation);
-						}
 						return true;
 					}
 					else
@@ -718,13 +713,11 @@ public strictfp class RobotPlayer {
 	{
 		float ret = 0;
 		
-		if (canSeeThreat)
+		ret += loc.distanceTo(closestThreat);
+		
+		if (rc.readBroadcast(CHANNEL_THING_BUILD_COUNT) < 2)
 		{
-			ret += loc.distanceTo(closestThreat);
-		}
-		else
-		{
-			ret -= loc.distanceTo(closestThreat);			
+			ret -= 1000 * loc.distanceTo(theirSpawns[0]);
 		}
 		
 		return ret;
@@ -836,7 +829,7 @@ public strictfp class RobotPlayer {
 						soldier.type.bodyRadius + myRadius + 0.001f); 
 								
 			}
-			else if (trees == 0)
+			else if (round < 15)
 			{
 				return theirSpawns[0];
 			}
@@ -855,7 +848,7 @@ public strictfp class RobotPlayer {
 				}
 				else
 				{
-					a = closestThreat;
+					a = theirSpawns[0];
 				}
 				MapLocation b = archon.getLocation();
 				MapLocation c = myLocation;
@@ -1125,6 +1118,10 @@ public strictfp class RobotPlayer {
 					float ideal = getIdealDistance(info.getType());
 					if (ideal < 0)
 						continue;
+					if (isSoldier && info.type == RobotType.SOLDIER)
+						ideal = 7.7f;
+					if (isLumberjack)
+						ideal = 0;
 					d -= ideal;
 					d *= d;
 					ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
@@ -1213,26 +1210,7 @@ public strictfp class RobotPlayer {
 				{
 					ret += 1000 * (1 / (0.01f + d / REPULSION_RANGE));
 				}
-				else if (d - 1 > REPULSION_RANGE)
-				{
-					break;
-				}
 			}    		
-		}
-		if (isSoldier && round - lastAttackRound < 10)
-		{
-			for (TreeInfo info : nearbyTrees)
-			{
-				float d = info.getLocation().distanceTo(loc) - myRadius - info.radius;
-				if (d < 2)
-				{
-					ret += 1000 / (1 + d);
-				}
-				else if (d > 4)
-				{
-					break;
-				}
-			}
 		}
 //		if (reflection != null)
 //		{
@@ -1455,6 +1433,7 @@ public strictfp class RobotPlayer {
 		case ARCHON:
 			return 3.1f;
 		case SOLDIER:
+			return 2.1f;
 		case TANK:
 			return 5;
 		case SCOUT:
@@ -1780,17 +1759,17 @@ public strictfp class RobotPlayer {
 					cand = myLocation.add(randomDirection(), add);
 				}
 				break;
-//			case 4:
-//				cand = findMidpoint();
-//				if (cand == null)
-//				{
-//					cand = myLocation.add(randomDirection(), add);
-//				}
-//				else
-//				{
-//					rc.setIndicatorLine(myLocation, cand, 255, 127, 0);
-//				}
-//				break;
+			case 4:
+				cand = findMidpoint();
+				if (cand == null)
+				{
+					cand = myLocation.add(randomDirection(), add);
+				}
+				else
+				{
+					rc.setIndicatorLine(myLocation, cand, 255, 127, 0);
+				}
+				break;
 			default:
 				cand = myLocation.add(randomDirection(), add);
 			}
@@ -2089,7 +2068,6 @@ public strictfp class RobotPlayer {
 			donate();
 		}
 		closestThreat = null;
-		canSeeThreat = false;
 		loop:
 		for (RobotInfo info : nearbyEnemies)
 		{
@@ -2099,7 +2077,6 @@ public strictfp class RobotPlayer {
 			case LUMBERJACK:
 			case TANK:
 				closestThreat = info.location;
-				canSeeThreat = true;
 				break loop;
 			default: ;
 			}
