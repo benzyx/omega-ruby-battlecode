@@ -165,6 +165,7 @@ public strictfp class RobotPlayer {
 				rc.broadcast(CHANNEL_INITIAL_ARCHON_BLOCKED, 0);
 				rc.broadcastInt(CHANNEL_MAP_START_X, -INFINITY);
 				rc.broadcastInt(CHANNEL_MAP_START_Y, -INFINITY);
+				rc.broadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME, -100);
 			}
 			else
 			{
@@ -641,10 +642,58 @@ public strictfp class RobotPlayer {
 		rc.broadcastInt(CHANNEL_ARCHON_CRAMP_RECORDING + myID, cramp);
 		int best = smallestCramp();
 		System.out.println("Cramp = " + cramp + "; best = " + best);
-		if (cramp < best * 1.3f)
+		if (cramp < best * 1.05f)
 		{
-			attemptBuild(RobotType.GARDENER);
+			executeBuildPlan();
 		}
+	}
+	
+	static Direction[] buildPlan = new Direction[3];
+	static int buildPlanLen = 0;
+	
+	static void executeBuildPlan()
+	{
+		
+	}
+	
+	static void planFirstBuilds()
+	{
+		buildPlanLen = 0;
+		for (int i = 0; i < 100 && buildPlanLen < 3; i++)
+		{
+			attemptBuildPlan();
+		}
+	}
+	
+	static final float spawnDist = 1 + GameConstants.GENERAL_SPAWN_OFFSET;
+	
+	static void attemptBuildPlan() throws GameActionException
+	{
+		MapLocation a = myLocation;
+		Direction d1 = randomDirection();
+		MapLocation b = a.add(d1, myRadius + spawnDist);
+		if (rc.isCircleOccupied(b, 1))
+		{
+			return;
+		}
+		if (buildPlanLen < 1)
+		{
+			buildPlan[0] = d1;
+			buildPlanLen = 1;
+		}
+		Direction d2 = randomDirection();
+		MapLocation c = b.add(d2, 1 + spawnDist);
+		if (rc.isCircleOccupied(c, 1))
+		{
+			return;
+		}
+		if (buildPlanLen < 2)
+		{
+			buildPlan[0] = d1;
+			buildPlan[1] = d2;
+			buildPlanLen = 2;
+		}
+		Direction d3 = 
 	}
 	
 	static int computeCramp() throws GameActionException
@@ -690,6 +739,7 @@ public strictfp class RobotPlayer {
 		{
 			macro();
 		}
+		burnCycles(Clock.getBytecodesLeft() / 2 - 500);
 	}
 
 	// When the type parameter is ARCHON, we build a TREE instead.
@@ -1023,6 +1073,8 @@ public strictfp class RobotPlayer {
 				wantGardener = true;
 			}
 		}
+		
+		// TODO make sure this still makes sense given our new intial condition logic
 		if (getBuildOrderNext(rc.readBroadcast(CHANNEL_BUILD_INDEX)) == null &&
 				gardeners <= 2 && rc.getTeamBullets() > 125 && gardeners < round / 50)
 		{
@@ -2262,11 +2314,7 @@ public strictfp class RobotPlayer {
 		{
 			closestThreat = theirSpawns[0];
 		}
-		if (isArchon)
-		{
-			burnCycles(Clock.getBytecodesLeft() / 2 - 500);
-		}
-		else if (!isGardener && nearbyEnemies.length == 0 && nearbyBullets.length == 0)
+		if (!isArchon && !isGardener && nearbyEnemies.length == 0 && nearbyBullets.length == 0)
 		{
 			burnCycles(Clock.getBytecodesLeft() / 4);
 		}
