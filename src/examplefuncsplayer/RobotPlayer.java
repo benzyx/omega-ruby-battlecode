@@ -37,7 +37,8 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_IS_SCOUT_USEFUL = 130;
 	public static final int CHANNEL_THING_BUILD_COUNT = 131;
 	public static final int CHANNEL_ARCHON_CRAMP_RECORDING = 132;
-	public static final int ____ = 135;
+	public static final int CHANNEL_EVER_FOUND_GARDENER = 135;
+	public static final int ____ = 136;
 	
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -486,7 +487,7 @@ public strictfp class RobotPlayer {
 		{
 			return;
 		}
-		if (enemyType == RobotType.ARCHON && trees < 3 && round < 750)
+		if (enemyType == RobotType.ARCHON && trees < 3 && round < 750 && rc.readBroadcast(readNumberChannel(CHANNEL_NUMBER_OF_ARCHONS)) > 0)
 		{
 			return;
 		}
@@ -1210,12 +1211,17 @@ public strictfp class RobotPlayer {
 					if (ideal < 0)
 						continue;
 					if (isSoldier && info.type == RobotType.SOLDIER)
-						ideal = 7.7f;
-					if (isLumberjack)
-						ideal = 0;
-					d -= ideal;
-					d *= d;
-					ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
+					{
+						ret += 4000 * Math.abs(d - 7);
+					}
+					else
+					{
+						if (isLumberjack)
+							ideal = 0;
+						d -= ideal;
+						d *= d;
+						ret += (long) (d * getIdealDistanceMultiplier(info.getType()));
+					}
 				}
 			}
 		}
@@ -1313,6 +1319,21 @@ public strictfp class RobotPlayer {
 			ret += bulletDodgeWeight(loc);
 		}
 		
+		if (isSoldier)
+		{
+			if (round - lastAttackRound < 5)
+			{
+				for (TreeInfo info : nearbyTrees)
+				{
+					float d = loc.distanceTo(info.location) - myRadius - info.radius;
+					if (d < 3)
+					{
+						ret += 2000 * (3 - d);
+					}
+				}
+			}
+		}
+		
 		return ret;
 	}
 	
@@ -1396,70 +1417,54 @@ public strictfp class RobotPlayer {
 		for (int i = 0; i < importantBulletIndex; i++)
 		{
 			BulletInfo bullet = nearbyBullets[i];
-			// Get relevant bullet information
-			Direction propagationDirection = bullet.dir;
-			MapLocation bulletLocation = bullet.location;
-
-			MapLocation loc = myLocation;
-			// Calculate bullet relations to this robot
-			Direction directionToRobot = bulletLocation.directionTo(loc);
-			float distToRobot = bulletLocation.distanceTo(loc);
-
-			boolean important = false;
-			if (distToRobot < myRadius + myStride)
+			MapLocation a = bullet.location;
+			Direction dir = bullet.dir;
+			MapLocation b = a.add(dir, bullet.speed * 2);
+			Direction toRobot = a.directionTo(myLocation);
+			
+			float angle = Math.abs(dir.radiansBetween(toRobot)); 
+			float d;
+			if (angle > HALFPI)
 			{
-				important = true;
+				d = a.distanceTo(myLocation);
+			}
+			else if (Math.abs(dir.radiansBetween(b.directionTo(myLocation))) < HALFPI)
+			{
+				d = b.distanceTo(myLocation);
 			}
 			else
 			{
-				float theta = propagationDirection.radiansBetween(directionToRobot);
-
-				if (theta < Math.PI / 2)
-				{
-					// distToRobot is our hypotenuse, theta is our angle, and we want to know this length of the opposite leg.
-					// This is the distance of a line that goes from myLocation and intersects perpendicularly with propagationDirection.
-					// This corresponds to the smallest radius circle centered at our location that would intersect with the
-					// line that is the path of the bullet.
-					float perpendicularDist = (float)Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
-					if (perpendicularDist < myRadius + myStride)
-					{
-						float alongDist = (float)Math.abs(distToRobot * Math.cos(theta)); // soh cah toa :)
-						int roundsToHit = (int) (alongDist / bullet.speed);
-						if (roundsToHit <= 3)
-							important = true;
-					}
-				}
+				d = (float) (a.distanceTo(myLocation) * Math.sin(angle));
 			}
-			if (!important)
+			if (d > myRadius + myStride)
 			{
 				--importantBulletIndex;
 				nearbyBullets[i] = nearbyBullets[importantBulletIndex];
-				nearbyBullets[importantBulletIndex] = bullet;
 				--i;
 			}
 		}
-		int lim = 10;
-		if (importantBulletIndex > lim)
-		{
-			for (int i = 0; i < lim; i++)
-			{
-				float best = 1e9f;
-				int idx = i;
-				for (int j = i+1; j < importantBulletIndex; j++)
-				{
-					float d = nearbyBullets[j].getLocation().distanceTo(myLocation); 
-					if (d < best)
-					{
-						best = d;
-						idx = j;
-					}
-				}
-				BulletInfo swp = nearbyBullets[i];
-				nearbyBullets[i] = nearbyBullets[idx];
-				nearbyBullets[idx] = swp;
-			}
-			importantBulletIndex = lim;
-		}
+//		int lim = 10;
+//		if (importantBulletIndex > lim)
+//		{
+//			for (int i = 0; i < lim; i++)
+//			{
+//				float best = 1e9f;
+//				int idx = i;
+//				for (int j = i+1; j < importantBulletIndex; j++)
+//				{
+//					float d = nearbyBullets[j].getLocation().distanceTo(myLocation); 
+//					if (d < best)
+//					{
+//						best = d;
+//						idx = j;
+//					}
+//				}
+//				BulletInfo swp = nearbyBullets[i];
+//				nearbyBullets[i] = nearbyBullets[idx];
+//				nearbyBullets[idx] = swp;
+//			}
+//			importantBulletIndex = lim;
+//		}
 		debug_highlightImportantBullets();
 	}
 
@@ -1776,9 +1781,29 @@ public strictfp class RobotPlayer {
 
 	static MapLocation opti;
 	static MapLocation cachedTarget;
+	
+	static Direction[] preprocess = {
+		new Direction(0.0000000000f),
+		new Direction(3.1415926536f),
+		new Direction(1.5707963268f),
+		new Direction(4.7123889804f),
+		new Direction(0.7853981634f),
+		new Direction(3.9269908170f),
+		new Direction(2.3561944902f),
+		new Direction(5.4977871438f),
+		new Direction(0.3926990817f),
+		new Direction(3.5342917353f),
+		new Direction(1.9634954085f),
+		new Direction(5.1050880621f),
+		new Direction(1.1780972451f),
+		new Direction(4.3196898987f),
+		new Direction(2.7488935719f),
+		new Direction(5.8904862255f)
+	};
 
 	public static void selectOptimalMove() throws GameActionException
 	{
+		System.out.println(Clock.getBytecodesLeft() + " left");
 		ignoreFriendRepulsion = false;
 		cachedTarget = findTarget();
 		if (cachedTarget != null)
@@ -1808,7 +1833,7 @@ public strictfp class RobotPlayer {
 		{
 			after += 284 * (nearbyEnemies.length + 1);
 		}
-		int iterlim = 100;
+		int iterlim = 50;
 		if (isScout && nearbyBullets.length == 0 && freeRange && nearbyEnemies.length == 0)
 		{
 			iterlim = 5;
@@ -1817,67 +1842,76 @@ public strictfp class RobotPlayer {
 		{
 			iterlim = 16;
 		}
+		System.out.println(Clock.getBytecodesLeft() + " left");
 		while (Clock.getBytecodesLeft() - longest > after && iterations < iterlim)
 		{
 			int t1 = Clock.getBytecodesLeft();
 			float add;
+			MapLocation cand;
 			if (longest > 500 && nearbyBullets.length >= 5)
 			{
 				add = myStride;
+				if (iterations < preprocess.length)
+				{
+					cand = myLocation.add(preprocess[iterations], add);
+				}
+				else
+				{
+					cand = myLocation.add(randomDirection(), add);
+				}
 			}
 			else
 			{
 				add = myStride * rand() / 360.0f;
-			}
-			MapLocation cand;
-			switch (iterations)
-			{
-			case 0:
-				cand = myLocation;
-				break;
-			case 1:
-				if (cachedTarget == null)
+				switch (iterations)
 				{
+				case 0:
+					cand = myLocation;
+					break;
+				case 1:
+					if (cachedTarget == null)
+					{
+						cand = myLocation.add(randomDirection(), add);
+					}
+					else
+					{
+						cand = toward(myLocation, cachedTarget, myStride);
+					}
+					break;
+				case 2:
+					if (nearbyBullets.length != 0)
+					{
+						cand = myLocation.add(nearbyBullets[0].dir.rotateLeftDegrees(90), myStride);
+					}
+					else
+					{
+						cand = myLocation.add(randomDirection(), add);
+					}
+					break;
+				case 3:
+					if (nearbyBullets.length != 0)
+					{
+						cand = myLocation.add(nearbyBullets[0].dir.rotateRightDegrees(90), myStride);
+					}
+					else
+					{
+						cand = myLocation.add(randomDirection(), add);
+					}
+					break;
+				case 4:
+					cand = findMidpoint();
+					if (cand == null)
+					{
+						cand = myLocation.add(randomDirection(), add);
+					}
+					else
+					{
+						rc.setIndicatorLine(myLocation, cand, 255, 127, 0);
+					}
+					break;
+				default:
 					cand = myLocation.add(randomDirection(), add);
 				}
-				else
-				{
-					cand = toward(myLocation, cachedTarget, myStride);
-				}
-				break;
-			case 2:
-				if (nearbyBullets.length != 0)
-				{
-					cand = myLocation.add(nearbyBullets[0].dir.rotateLeftDegrees(90), myStride);
-				}
-				else
-				{
-					cand = myLocation.add(randomDirection(), add);
-				}
-				break;
-			case 3:
-				if (nearbyBullets.length != 0)
-				{
-					cand = myLocation.add(nearbyBullets[0].dir.rotateRightDegrees(90), myStride);
-				}
-				else
-				{
-					cand = myLocation.add(randomDirection(), add);
-				}
-				break;
-			case 4:
-				cand = findMidpoint();
-				if (cand == null)
-				{
-					cand = myLocation.add(randomDirection(), add);
-				}
-				else
-				{
-					rc.setIndicatorLine(myLocation, cand, 255, 127, 0);
-				}
-				break;
-			default:
-				cand = myLocation.add(randomDirection(), add);
 			}
 			if (rc.canMove(cand))
 			{
@@ -1908,6 +1942,7 @@ public strictfp class RobotPlayer {
 				nearbyBullets.length + "/" + importantBulletIndex + "; " +
 				x + "; ignore = " +
 				ignoreFriendRepulsion);
+		System.out.println(Clock.getBytecodesLeft() + " left");
 	}
 
 	public static void onRoundEnd() throws GameActionException
@@ -1930,14 +1965,23 @@ public strictfp class RobotPlayer {
 		}
 		burnCycles(Clock.getBytecodesLeft() - 500);
 	}
+	
+	static void debug_resignOver1000()
+	{
+		if (round > 1000)
+		{
+			rc.resign();
+		}
+	}
 
 	public static void onRoundBegin() throws GameActionException
 	{
+		debug_resignOver1000();
 		roam = false;
 		theirBase = readPoint(CHANNEL_THEIR_BASE);
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
-		nearbyBullets = rc.senseNearbyBullets();
+		nearbyBullets = rc.senseNearbyBullets(myRadius + myStride + 4);
 		if (isGardener)
 		{
 			nearbyTrees = rc.senseNearbyTrees(-1, myTeam);
@@ -2157,10 +2201,11 @@ public strictfp class RobotPlayer {
 			{
 			case GARDENER:
 				writePoint(CHANNEL_THEIR_BASE, info.getLocation());
+				rc.broadcastBoolean(CHANNEL_EVER_FOUND_GARDENER, true);
 				break loop;
 			case SOLDIER:
 			case LUMBERJACK:
-				if (round > 200 && !theirBaseFound())
+				if (rc.readBroadcastBoolean(CHANNEL_EVER_FOUND_GARDENER) && !theirBaseFound())
 				{
 					writePoint(CHANNEL_THEIR_BASE, info.getLocation());
 				}
