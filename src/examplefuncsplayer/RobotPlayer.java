@@ -38,7 +38,8 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_THING_BUILD_COUNT = 131;
 	public static final int CHANNEL_ARCHON_CRAMP_RECORDING = 132;
 	public static final int CHANNEL_EVER_FOUND_GARDENER = 135;
-	public static final int ____ = 136;
+	public static final int CHANNEL_LAST_ANYTHING_BUILD_TIME = 136;
+	public static final int ____ = 137;
 	
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -660,11 +661,28 @@ public strictfp class RobotPlayer {
 		}
 		return ret;
 	}
+	
+	static boolean meetsInitialConditions() throws GameActionException
+	{
+		if (rc.getTeamBullets() < 100)
+		{
+			return false;
+		}
+		if (gardeners > 0)
+		{
+			return false;
+		}
+		if (round - rc.readBroadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME) < 5)
+		{
+			return false;
+		}
+		return true;
+	}
 
 	public static void archonSpecificLogic() throws GameActionException
 	{
 		getMacroStats();
-		if (rc.readBroadcastInt(CHANNEL_THING_BUILD_COUNT) == 0)
+		if (meetsInitialConditions())
 		{
 			round1Planning();
 		}
@@ -792,6 +810,7 @@ public strictfp class RobotPlayer {
 		{
 			writePoint(CHANNEL_RALLY_POINT, myLocation);
 		}
+		rc.broadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME, round);
 		increment(CHANNEL_THING_BUILD_COUNT);
 	}
 	
