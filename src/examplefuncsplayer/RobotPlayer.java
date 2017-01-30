@@ -36,6 +36,8 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_VP_WIN = 129;
 	public static final int CHANNEL_IS_SCOUT_USEFUL = 130;
 	public static final int CHANNEL_THING_BUILD_COUNT = 131;
+	public static final int CHANNEL_ARCHON_CRAMP_RECORDING = 132;
+	public static final int ____ = 135;
 	
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -95,6 +97,7 @@ public strictfp class RobotPlayer {
 	static int lastAttackRound;
 	static MapLocation closestThreat;
 	static boolean canSeeThreat;
+	static MapLocation[] ourSpawns;
 	
 	static int retHelper1, retHelper2;
 
@@ -136,6 +139,11 @@ public strictfp class RobotPlayer {
 		}
 		theirSpawns = rc.getInitialArchonLocations(myTeam.opponent());
 		sortByDistanceFromMe(theirSpawns);
+		if (isArchon)
+		{
+			ourSpawns = rc.getInitialArchonLocations(myTeam);
+			sortByDistanceFromMe(ourSpawns);
+		}
 		if (myType == RobotType.ARCHON)
 		{
 			if (myID == 0)
@@ -614,11 +622,55 @@ public strictfp class RobotPlayer {
 	public static void scoutSpecificLogic() throws GameActionException
 	{
 	}
+	
+	static int smallestCramp() throws GameActionException
+	{
+		int ans = Integer.MAX_VALUE;
+		for (int i = 0; i < ourSpawns.length; i++)
+		{
+			ans = Math.min(ans, rc.readBroadcastInt(CHANNEL_ARCHON_CRAMP_RECORDING + i));
+		}
+		return ans;
+	}
+	
+	static void round1Planning() throws GameActionException
+	{
+		int cramp = computeCramp();
+		rc.broadcastInt(CHANNEL_ARCHON_CRAMP_RECORDING + myID, cramp);
+		int best = smallestCramp();
+		System.out.println("Cramp = " + cramp + "; best = " + best);
+		if (cramp < best * 1.3f)
+		{
+			attemptBuild(RobotType.GARDENER);
+		}
+	}
+	
+	static int computeCramp() throws GameActionException
+	{
+		int ret = 0;
+		for (int i = 0; i < 100; i++)
+		{
+			MapLocation loc = randomPointWithin(myType.sensorRadius - 1.1f);
+			rc.setIndicatorDot(loc, 255, 255, 255);
+			if (rc.isCircleOccupied(loc, 1) || !rc.onTheMap(loc, 1))
+			{
+				++ret;
+			}
+		}
+		return ret;
+	}
 
 	public static void archonSpecificLogic() throws GameActionException
 	{
 		getMacroStats();
-		macro();
+		if (rc.readBroadcastInt(CHANNEL_THING_BUILD_COUNT) == 0)
+		{
+			round1Planning();
+		}
+		else
+		{
+			macro();
+		}
 	}
 
 	// When the type parameter is ARCHON, we build a TREE instead.
@@ -1110,7 +1162,6 @@ public strictfp class RobotPlayer {
 				ret += 1500 * loc.distanceTo(destination);
 			}
 		}
-		System.out.println(ret);
 		
 		if (isScout)
 		{
@@ -1262,8 +1313,6 @@ public strictfp class RobotPlayer {
 			ret += bulletDodgeWeight(loc);
 		}
 		
-		System.out.println(ret);
-
 		return ret;
 	}
 	
