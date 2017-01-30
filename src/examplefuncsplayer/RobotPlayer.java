@@ -1204,6 +1204,11 @@ public strictfp class RobotPlayer {
 
 	public static long badness(MapLocation loc) throws GameActionException
 	{
+		if (isArchon && meetsInitialConditions())
+		{
+			return rand();
+		}
+		
 		long ret = 0;
 
 //		if (beaconLen != 0)
