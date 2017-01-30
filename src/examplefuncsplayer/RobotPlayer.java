@@ -1313,6 +1313,10 @@ public strictfp class RobotPlayer {
 			ret += bulletDodgeWeight(loc);
 		}
 		
+		
+		if (freeRange && bugMode){
+			ret += 100000 * loc.distanceTo(bugDestination);
+		}
 		return ret;
 	}
 	
@@ -1817,6 +1821,11 @@ public strictfp class RobotPlayer {
 		{
 			iterlim = 16;
 		}
+		
+		if (freeRange){ // bug algorithm used
+			bugAlgorithm();
+		}
+		
 		while (Clock.getBytecodesLeft() - longest > after && iterations < iterlim)
 		{
 			int t1 = Clock.getBytecodesLeft();
@@ -1898,6 +1907,63 @@ public strictfp class RobotPlayer {
 			opti = myLocation;
 		debug_printAfterMovementLoop(iterations, longest);
 	}
+	
+	
+	// Bug Algorithm
+	static boolean bugMode = false;
+	static float bugDistThreshold = 0;
+	static MapLocation bugDestination = null;
+	static MapLocation savedDestination = null;
+	static int di = 0;
+	
+	static void bugAlgorithm(){
+		if (bugMode){
+			if (!destination.equals(savedDestination) || myLocation.distanceTo(destination) < bugDistThreshold - 0.01f){
+				bugMode = false;
+			}
+		}
+		if (!bugMode){
+			if (!rc.canMove(myLocation.directionTo(destination))){
+				bugMode = true;
+				bugDistThreshold = myLocation.distanceTo(destination);
+				savedDestination = destination;
+				di = Math.round(myLocation.directionTo(destination).radians/1.57079633f)%4;
+			}
+		}
+		if (bugMode) followWall();
+	}
+	
+	static void followWall(){
+		float eps = 0.005f;
+		float dx[] = {0,1,0,-1}; // up, right, down, left
+		float dy[] = {1,0,-1,0}; // di++ == turn right
+		
+		float xx = 0, yy = 0;
+		float x = myLocation.x, y = myLocation.y;
+		int itCount = 0;
+		while (Math.sqrt(xx*xx + yy*yy) < myStride && itCount < 500){
+			if (rc.canMove(new MapLocation(x + xx + eps*dx[(di+3)%4], y + yy + eps*dy[(di+3)%4]))){ // if can turn left, do it
+				di = (di+3)%4;
+				xx += dx[di]*eps;
+				yy += dy[di]*eps;
+			}
+			else if (rc.canMove(new MapLocation(x + xx + dx[di], y + yy + dy[di]))){ // else, if can go forward, do it
+				xx += dx[di]*eps;
+				yy += dy[di]*eps;
+			}
+			else{ // else, turn right
+				di = (di + 1) % 4;
+			}
+			itCount++;
+		}
+		bugDestination = new MapLocation(x + xx, y + yy);
+		
+		// debug point
+		rc.setIndicatorLine(myLocation, bugDestination, 0, 255, 255);
+		rc.setIndicatorDot(bugDestination, 0, 255, 255);
+	}
+	
+	
 	
 	static void debug_printAfterMovementLoop(int iterations, int longest) throws GameActionException
 	{
