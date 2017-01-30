@@ -94,6 +94,7 @@ public strictfp class RobotPlayer {
 	static MapLocation attractor;
 	static int lastAttackRound;
 	static MapLocation closestThreat;
+	static boolean canSeeThreat;
 	
 	static int retHelper1, retHelper2;
 
@@ -683,11 +684,12 @@ public strictfp class RobotPlayer {
 			}
 			float bestValue = 0;
 			Direction bestDir = null;
-			for (int i = 0; i < 10; i++)
+			float base = rand01() * 6.283185307179586476925286766559f;
+			for (int i = 0; i < 12; i++)
 			{
-				Direction dir = randomDirection();
+				Direction dir = new Direction(base + i * 6.283185307179586476925286766559f / 12);
+				MapLocation loc = myLocation.add(dir, myRadius + type.bodyRadius + GameConstants.GENERAL_SPAWN_OFFSET);
 				if (rc.canBuildRobot(type, dir)){
-					MapLocation loc = myLocation.add(dir, myRadius + type.bodyRadius + GameConstants.GENERAL_SPAWN_OFFSET);
 					float v = evaluateBuildGoodness(loc);
 					if (bestDir == null || v > bestValue)
 					{
@@ -702,6 +704,7 @@ public strictfp class RobotPlayer {
 			}
 			else
 			{
+				System.out.println(bestValue);
 				executeBuild(bestDir, type);
 				return true;
 			}
@@ -713,11 +716,13 @@ public strictfp class RobotPlayer {
 	{
 		float ret = 0;
 		
-		ret += loc.distanceTo(closestThreat);
-		
-		if (rc.readBroadcast(CHANNEL_THING_BUILD_COUNT) < 2)
+		if (canSeeThreat)
 		{
-			ret -= 1000 * loc.distanceTo(theirSpawns[0]);
+			ret += loc.distanceTo(closestThreat);
+		}
+		else
+		{
+			ret -= loc.distanceTo(closestThreat);
 		}
 		
 		return ret;
@@ -814,25 +819,41 @@ public strictfp class RobotPlayer {
 	
 	static MapLocation findTarget()
 	{
-		ignoreFriendRepulsion = false;
+		if (closestTree != null && (isScout || isLumberjack || (isArchon && round < 50)))
+		{
+			return closestTree.location;
+		}
 		if (isArchon)
 		{
-			RobotInfo soldier = closestEnemyOfType(RobotType.SOLDIER);
 			RobotInfo gardener = closestFriendOfType(RobotType.GARDENER);
-			if (soldier != null && gardener != null)
+			if (gardener != null)
 			{
-				ignoreFriendRepulsion = true;
-				MapLocation a = soldier.getLocation();
-				MapLocation b = gardener.getLocation();
-				return a.add(
-						a.directionTo(b),
-						soldier.type.bodyRadius + myRadius + 0.001f); 
-								
+				RobotInfo soldier = null;
+				float d = 0;
+				for (RobotInfo info : nearbyEnemies)
+				{
+					if (info.type == RobotType.SOLDIER)
+					{
+						float td = info.location.distanceTo(gardener.location);
+						if (soldier == null || td < d)
+						{
+							d = td;
+							soldier = info;
+						}
+					}
+				}
+				if (soldier != null)
+				{
+					ignoreFriendRepulsion = true;
+					MapLocation a = soldier.getLocation();
+					MapLocation b = gardener.getLocation();
+					return a.add(
+							a.directionTo(b),
+							soldier.type.bodyRadius + myRadius + 0.1f); 
+									
+				}
 			}
-			else if (round < 15)
-			{
-				return theirSpawns[0];
-			}
+			return null;
 		}
 		if (isGardener)
 		{
@@ -854,7 +875,7 @@ public strictfp class RobotPlayer {
 				MapLocation c = myLocation;
 				return b.add(
 						a.directionTo(b),
-						archon.type.bodyRadius + myRadius + 0.001f + archon.type.strideRadius);
+						archon.type.bodyRadius + myRadius + 0.2f + archon.type.strideRadius);
 			}
 		}
 		return freeRange ? currentTarget : destination;
@@ -1070,7 +1091,26 @@ public strictfp class RobotPlayer {
 //			ret += 1200 * loc.distanceTo(attractor);
 //		}
 		
-		ret += 1000 * loc.distanceTo(cachedTarget);
+		if (cachedTarget != null)
+		{
+			if (isScout && closestTree != null)
+			{
+				ret += 100000 * loc.distanceTo(cachedTarget);
+			}
+			else
+			{
+				ret += 1000 * loc.distanceTo(cachedTarget);
+			}
+		}
+		else if (isArchon)
+		{
+			ret += 1000 * loc.distanceTo(closestThreat);
+			if (loc.distanceTo(destination) > 6)
+			{
+				ret += 1500 * loc.distanceTo(destination);
+			}
+		}
+		System.out.println(ret);
 		
 		if (isScout)
 		{
@@ -1217,10 +1257,12 @@ public strictfp class RobotPlayer {
 //			ret += 20000 * loc.distanceTo(reflection);
 //		}
 		
-		if (!bruteDefence && !isArchon && !isGardener)
+		if (!isArchon)
 		{
 			ret += bulletDodgeWeight(loc);
 		}
+		
+		System.out.println(ret);
 
 		return ret;
 	}
@@ -1578,7 +1620,11 @@ public strictfp class RobotPlayer {
 	
 	static void findBeacon() throws GameActionException
 	{
-		ignoreFriendRepulsion = beaconLen > 1;
+		if (cachedTarget == null)
+		{
+			return;
+		}
+		ignoreFriendRepulsion = ignoreFriendRepulsion || beaconLen > 1;
 		if (beaconLen > beacons.length)
 		{
 			beaconLen = 10;
@@ -1684,8 +1730,12 @@ public strictfp class RobotPlayer {
 
 	public static void selectOptimalMove() throws GameActionException
 	{
+		ignoreFriendRepulsion = false;
 		cachedTarget = findTarget();
-		rc.setIndicatorLine(myLocation, cachedTarget, 255, 255, 255);
+		if (cachedTarget != null)
+		{
+			rc.setIndicatorLine(myLocation, cachedTarget, 255, 255, 255);			
+		}
 		debug_johnMadden();
 		preprocessBullets();
 		findBeacon();
@@ -1716,7 +1766,7 @@ public strictfp class RobotPlayer {
 		}
 		else if (isGardener || isArchon)
 		{
-			iterlim = 12;
+			iterlim = 16;
 		}
 		while (Clock.getBytecodesLeft() - longest > after && iterations < iterlim)
 		{
@@ -1737,7 +1787,14 @@ public strictfp class RobotPlayer {
 				cand = myLocation;
 				break;
 			case 1:
-				cand = toward(myLocation, cachedTarget, myStride);
+				if (cachedTarget == null)
+				{
+					cand = myLocation.add(randomDirection(), add);
+				}
+				else
+				{
+					cand = toward(myLocation, cachedTarget, myStride);
+				}
 				break;
 			case 2:
 				if (nearbyBullets.length != 0)
@@ -1786,17 +1843,22 @@ public strictfp class RobotPlayer {
 			int taken = t1 - Clock.getBytecodesLeft();
 			longest = Math.max(longest, taken);
 		}
-		debug_printAfterMovementLoop(iterations, longest);
 		if (best != null)
 			opti = best;
 		else
 			opti = myLocation;
-
+		debug_printAfterMovementLoop(iterations, longest);
 	}
 	
-	static void debug_printAfterMovementLoop(int iterations, int longest)
+	static void debug_printAfterMovementLoop(int iterations, int longest) throws GameActionException
 	{
-		System.out.println(iterations + " iterations; the longest one cost " + longest + "; " + nearbyBullets.length + "/" + importantBulletIndex);
+		long x = badness(opti);
+		System.out.println(
+				iterations + " iterations; the longest one cost " +
+				longest + "; " + 
+				nearbyBullets.length + "/" + importantBulletIndex + "; " +
+				x + "; ignore = " +
+				ignoreFriendRepulsion);
 	}
 
 	public static void onRoundEnd() throws GameActionException
@@ -2068,6 +2130,7 @@ public strictfp class RobotPlayer {
 			donate();
 		}
 		closestThreat = null;
+		canSeeThreat =  false;
 		loop:
 		for (RobotInfo info : nearbyEnemies)
 		{
@@ -2077,6 +2140,7 @@ public strictfp class RobotPlayer {
 			case LUMBERJACK:
 			case TANK:
 				closestThreat = info.location;
+				canSeeThreat = true;
 				break loop;
 			default: ;
 			}
@@ -2668,67 +2732,12 @@ public strictfp class RobotPlayer {
 		return rand() / 360f;
 	}
 
-	/**
-	 * Returns a random Direction
-	 * @return a random Direction
-	 */
 	 static Direction randomDirection() {
-		return new Direction((float) (rand() / 6.283185307179586476925286766559));
+		return new Direction(rand() / 57.295779513082320876798154814105f);
 	}
 
 	static Direction randomDirection(int deg) {
-		return new Direction((float) ((rand()/deg*deg) / 6.283185307179586476925286766559));
-	}
-
-	/**
-	 * Attempts to move in a given direction, while avoiding small obstacles directly in the path.
-	 *
-	 * @param dir The intended direction of movement
-	 * @return true if a move was performed
-	 * @throws GameActionException
-	 */
-	static boolean tryMove(Direction dir) throws GameActionException {
-		return tryMove(dir,20,3);
-	}
-
-	/**
-	 * Attempts to move in a given direction, while avoiding small obstacles direction in the path.
-	 *
-	 * @param dir The intended direction of movement
-	 * @param degreeOffset Spacing between checked directions (degrees)
-	 * @param checksPerSide Number of extra directions checked on each side, if intended direction was unavailable
-	 * @return true if a move was performed
-	 * @throws GameActionException
-	 */
-	static boolean tryMove(Direction dir, float degreeOffset, int checksPerSide) throws GameActionException {
-
-		// First, try intended direction
-		if (rc.canMove(dir)) {
-			rc.move(dir);
-			return true;
-		}
-
-		// Now try a bunch of similar angles
-		boolean moved = false;
-		int currentCheck = 1;
-
-		while(currentCheck<=checksPerSide) {
-			// Try the offset of the left side
-			if(rc.canMove(dir.rotateLeftDegrees(degreeOffset*currentCheck))) {
-				rc.move(dir.rotateLeftDegrees(degreeOffset*currentCheck));
-				return true;
-			}
-			// Try the offset on the right side
-			if(rc.canMove(dir.rotateRightDegrees(degreeOffset*currentCheck))) {
-				rc.move(dir.rotateRightDegrees(degreeOffset*currentCheck));
-				return true;
-			}
-			// No move performed, try slightly further
-			currentCheck++;
-		}
-
-		// A move never happened, so return false.
-		return false;
+		return new Direction((float) ((rand()/deg*deg) / 57.295779513082320876798154814105f));
 	}
 	
 	static int myNumberOfChannel()
