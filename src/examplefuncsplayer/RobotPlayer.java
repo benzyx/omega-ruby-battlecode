@@ -1931,7 +1931,7 @@ public strictfp class RobotPlayer {
 	static MapLocation opti;
 	static MapLocation cachedTarget;
 	
-	static Direction[] preprocess = {
+	static Direction[] preprocessDirections = {
 		new Direction(0.0000000000f),
 		new Direction(3.1415926536f),
 		new Direction(1.5707963268f),
@@ -2000,9 +2000,9 @@ public strictfp class RobotPlayer {
 			if (longest > 500 && nearbyBullets.length >= 5)
 			{
 				add = myStride;
-				if (iterations < preprocess.length)
+				if (iterations < preprocessDirections.length)
 				{
-					cand = myLocation.add(preprocess[iterations], add);
+					cand = myLocation.add(preprocessDirections[iterations], add);
 				}
 				else
 				{
