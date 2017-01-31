@@ -64,8 +64,8 @@ public strictfp class RobotPlayer {
 	static float topBound, leftBound, bottomBound, rightBound;
 	static RobotController rc;
 	static int myID;
-	static MapLocation centreOfBase = null;
 	static MapLocation currentTarget = null;
+	static MapLocation bounceTarget;
 	//    static Direction prevDirection = randomDirection();
 	static RobotInfo[] nearbyEnemies;
 	static RobotInfo[] nearbyFriends;
@@ -263,7 +263,6 @@ public strictfp class RobotPlayer {
 			freeRange = true;
 		}
 		
-		centreOfBase = readPoint(CHANNEL_RALLY_POINT);
 		while (true)
 		{
 			try {
@@ -275,7 +274,6 @@ public strictfp class RobotPlayer {
 					skipToNextRound = false;
 					continue;
 				}
-				centreOfBase = readPoint(CHANNEL_RALLY_POINT);
 				switch (myType)
 				{
 				case GARDENER:
@@ -289,6 +287,13 @@ public strictfp class RobotPlayer {
 					break;
 				}
 
+				if (isArchon)
+				{
+					if (bounceTarget == null || !rc.canMove(toward(myLocation, bounceTarget, myStride)))
+					{
+						bounceTarget = myLocation.add(randomDirection(), 200);
+					}
+				}
 				if (freeRange)
 				{
 					if (theirBaseFound())
@@ -1202,7 +1207,7 @@ public strictfp class RobotPlayer {
 				}
 				else
 				{
-					return centreOfBase;
+					return null;
 				}
 				MapLocation b = archon.getLocation();
 				MapLocation c = myLocation;
@@ -1213,7 +1218,7 @@ public strictfp class RobotPlayer {
 						result.y < topBound + 4 ||
 						result.x > rightBound - 4 ||
 						result.y > bottomBound - 4){
-					return centreOfBase;
+					return null;
 				}
 				else
 				{
@@ -1225,7 +1230,7 @@ public strictfp class RobotPlayer {
 				if (targetHex != null) currentTarget = targetHex;
 			}
 		}
-		return freeRange ? currentTarget : centreOfBase;
+		return freeRange ? currentTarget : null;
 	}
 	
 	public static void gardenerSpecificLogic() throws GameActionException
@@ -1478,11 +1483,7 @@ public strictfp class RobotPlayer {
 		}
 		else if (isArchon)
 		{
-			ret += 1000 * loc.distanceTo(closestThreat);
-			if (loc.distanceTo(centreOfBase) > 6)
-			{
-				ret += 1500 * loc.distanceTo(centreOfBase);
-			}
+			ret += 1000 * loc.distanceTo(bounceTarget);
 			if (trees == 0 && !archonIsSoldierNear)
 			{
 				float a = theirSpawns[0].directionTo(myOriginalLocation).radiansBetween(theirSpawns[0].directionTo(loc));
@@ -1595,14 +1596,7 @@ public strictfp class RobotPlayer {
 					ret += 1000 * (1 / (0.01f + d / range));
 				}
 			}
-			if (count > 5)
-			{
-				ret -= 10000 * loc.distanceTo(centreOfBase);
-			}
-			else
-			{
-				ret += tot;
-			}
+			ret += tot;
 		}
 
 		if (isArchon && !ignoreFriendRepulsion)
@@ -2517,14 +2511,6 @@ public strictfp class RobotPlayer {
 
 	public static void onRoundEnd() throws GameActionException
 	{
-		if (isGardener)
-		{
-			int dist = (int) ((myLocation.distanceTo(centreOfBase) + 7) * 1000);
-			if (dist > rc.readBroadcast(CHANNEL_CONTROL_RADIUS))
-			{
-				rc.broadcast(CHANNEL_CONTROL_RADIUS, dist);
-			}
-		}
 		if (rc.hasAttacked())
 		{
 			lastAttackRound = round;
@@ -2594,12 +2580,6 @@ public strictfp class RobotPlayer {
 		newGardenerLocChannel = CHANNEL_GARDENER_LOCATIONS + 50 * ((round + 1) % 2);
 		aggro = rc.readBroadcast(CHANNEL_ATTACK) != 0;
 		happyPlace = readPoint(CHANNEL_HAPPY_PLACE);
-
-		float d = myLocation.distanceTo(centreOfBase);
-		if (controlRadius - 1 < d && d < controlRadius + 1)
-		{
-			writePoint(CHANNEL_HAPPY_PLACE, myLocation);
-		}
 
 		if (rc.readBroadcast(CHANNEL_CURRENT_ROUND) != round)
 		{
@@ -3088,6 +3068,10 @@ public strictfp class RobotPlayer {
 	
 	static void doBFS(int allowed) throws GameActionException
 	{
+		if (true)
+		{
+			return;
+		}
 		int num = Clock.getBytecodeNum();
 		while (Clock.getBytecodeNum() - num < allowed - 1500 && Clock.getBytecodesLeft() > 2000 && rc.getRoundNum() == round)
 		{
