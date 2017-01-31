@@ -29,7 +29,6 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_LAST_SCOUT_BUILD_TIME = 121;
 	public static final int SCOUT_BUILD_INTERVAL = 80;
 	public static final int CHANNEL_CHOPPABLE_TREE = 122;
-	public static final int CHANNEL_INITIAL_ARCHON_BLOCKED = 124;
 	public static final int CHANNEL_THEIR_BASE = 125;
 	public static final int CHANNEL_MAP_START_X = 127;
 	public static final int CHANNEL_MAP_START_Y = 128;
@@ -196,7 +195,6 @@ public strictfp class RobotPlayer {
 				rc.broadcastFloat(CHANNEL_MAP_LEFT, -INFINITY);
 				rc.broadcastFloat(CHANNEL_MAP_RIGHT, INFINITY);
 				rc.broadcastFloat(CHANNEL_MAP_BOTTOM, INFINITY);
-				rc.broadcast(CHANNEL_INITIAL_ARCHON_BLOCKED, 0);
 				rc.broadcastInt(CHANNEL_MAP_START_X, -INFINITY);
 				rc.broadcastInt(CHANNEL_MAP_START_Y, -INFINITY);
 				rc.broadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME, -100);
@@ -1348,8 +1346,7 @@ public strictfp class RobotPlayer {
 			if (wantGardener)
 			{
 				rc.setIndicatorDot(myLocation, 0, 0, 0);
-				if (!attemptBuild(RobotType.GARDENER) && gardeners == 0)
-					rc.broadcast(CHANNEL_INITIAL_ARCHON_BLOCKED, 1);
+				attemptBuild(RobotType.GARDENER);
 			}
 		}
 
@@ -1362,7 +1359,7 @@ public strictfp class RobotPlayer {
 			{
 				attemptBuild(RobotType.SCOUT);
 			}
-			if (rc.getTeamBullets() >= 50 && (!wantGardener || gardeners > 5) && ((!wantSoldier && !wantLumberjack) || trees >= 5))
+			if (rc.getTeamBullets() >= 50 && ((!wantSoldier && !wantLumberjack) || trees >= 5))
 			{
 				rc.setIndicatorDot(myLocation, 0, 255, 0);
 				attemptBuild(RobotType.ARCHON); // plant a tree
@@ -1375,7 +1372,7 @@ public strictfp class RobotPlayer {
 			{
 				attemptBuild(RobotType.SOLDIER);
 			}
-			if (neutralTrees.length != 0)
+			if (neutralTrees.length != 0 && lumberjacks < trees / 2 + 2)
 			{
 				attemptBuild(RobotType.LUMBERJACK);
 			}
