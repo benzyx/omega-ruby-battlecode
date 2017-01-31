@@ -1091,9 +1091,20 @@ public strictfp class RobotPlayer {
 				}
 				MapLocation b = archon.getLocation();
 				MapLocation c = myLocation;
-				return b.add(
+				MapLocation result = b.add(
 						a.directionTo(b),
 						archon.type.bodyRadius + myRadius + 0.2f + archon.type.strideRadius);
+				if (result.x < leftBound + 4 ||
+						result.y < topBound + 4 ||
+						result.x > rightBound - 4 ||
+						result.y > bottomBound - 4)
+				{
+					return centreOfBase;
+				}
+				else
+				{
+					return result;
+				}
 			}
 		}
 		return freeRange ? currentTarget : centreOfBase;
@@ -1338,9 +1349,9 @@ public strictfp class RobotPlayer {
 			{
 				ret += 200000 * loc.distanceTo(cachedTarget);
 			}
-			else if (beaconLen > 1)
+			else if (bugMode && bugDestination != null)
 			{
-				ret += 1000 * loc.distanceTo(beacons[beaconLen - 1]);
+				ret += 10000 * loc.distanceTo(bugDestination);
 			}
 			else
 			{
@@ -1988,6 +1999,144 @@ public strictfp class RobotPlayer {
 		MapLocation r = b.location.add(b.dir, b.location.distanceTo(myLocation));
 		return new MapLocation((q.x + r.x) / 2, (q.y + r.y) / 2);
 	}
+	
+
+	// Bug Algorithm
+	static boolean bugMode = false;
+	static MapLocation bugBeginLocation;
+	static MapLocation bugDestination;
+	static MapLocation savedDestination;
+	static MapLocation bodyCentre;
+	static float bodyRadius;
+	static MapLocation myBugLocation;
+	
+	static void snap(MapLocation loc)
+	{
+		float bestD = 1e9f;
+		for (TreeInfo info : rc.senseNearbyTrees(loc, myRadius + 1, null))
+		{
+			float d = loc.distanceTo(info.location) - info.getRadius();
+			if (d < bestD)
+			{
+				bodyCentre = info.location;
+				bodyRadius = info.getRadius();
+				bestD = d;
+			}
+		}
+		for (RobotInfo info : rc.senseNearbyRobots(loc, myRadius + 1, null))
+		{
+			float d = loc.distanceTo(info.location) - info.getRadius();
+			if (d < bestD)
+			{
+				bodyCentre = info.location;
+				bodyRadius = info.getRadius();
+				bestD = d;
+			}
+		}
+	}
+	
+	static MapLocation advanceBy(float stride)
+	{
+		float r = bodyRadius + myRadius + 0.001f;
+		return bodyCentre.add(bodyCentre.directionTo(myBugLocation).rotateRightRads(stride / r), r);
+	}
+	
+	static final float PI = 3.1415926535897932384626433832795f;
+	static final float TAU = 6.283185307179586476925286766559f;
+	
+	static void bugAlgorithm(){
+		if (bugMode){
+			if (savedDestination.distanceTo(cachedTarget) > 4){
+				bugMode = false;
+			}
+		}
+		if (bugMode)
+		{
+			rc.setIndicatorLine(myLocation, bodyCentre, 255, 0, 255);
+			followWall();
+			rc.setIndicatorLine(myLocation, bodyCentre, 0, 0, 255);
+			rc.setIndicatorLine(myLocation, bugDestination, 255, 127, 0);
+		}
+		if (!bugMode && cachedTarget != null)
+		{
+			MapLocation wantMoveTo = myLocation.add(myLocation.directionTo(cachedTarget), 0.125f);
+			if (!rc.canMove(wantMoveTo))
+			{
+				System.out.println("ENTERING BUG MODE:");
+				bugMode = true;
+				bugBeginLocation = myLocation;
+				savedDestination = cachedTarget;
+				snap(myLocation);
+				myBugLocation = myLocation;
+				bugDestination = advanceBy(0);
+			}
+		}
+		if (!bugMode)
+		{
+			bugDestination = null;
+		}
+		else
+		{
+			// debug point
+			rc.setIndicatorLine(myLocation, bugDestination, 0, 255, 255);
+			rc.setIndicatorDot(bugDestination, 0, 255, 255);
+			
+			System.out.println("Current spot = " + myLocation);
+			System.out.println("Final spot = " + bugDestination.x + " " + bugDestination.y);
+			System.out.println("d = " + myLocation.distanceTo(bugDestination));
+		}
+	}
+	
+	static void followWall(){
+		
+		// Didn't follow wall properly last turn
+		if (bugDestination != null && !myLocation.equals(bugDestination))
+		{
+			bugMode = false;
+			System.out.println("BROKE OUT CUZ NOT SAME BUGDEST");
+			rc.setIndicatorLine(myLocation, theirSpawns[0], 255, 127, 0);
+			return;
+		}
+		
+		float stride = RobotPlayer.myStride - 0.02f;
+
+		myBugLocation = myLocation;
+		MapLocation ideal = advanceBy(stride);
+		if (rc.canMove(ideal))
+		{
+			bugDestination = ideal;
+		}
+		else
+		{
+			final int LIM = 1024;
+			int lo = 0;
+			int hi = LIM - 1;
+			while (lo != hi)
+			{
+				int mid = (lo + hi + 1) / 2;
+				float amount = stride * mid / LIM;
+				if (rc.canMove(advanceBy(amount)))
+				{
+					lo = mid;
+				}
+				else
+				{
+					hi = mid - 1;
+				}
+			}
+			float a = stride * lo / LIM;
+			float b = stride * (lo + 1) / LIM;
+			myBugLocation = bugDestination = advanceBy(a);
+			snap(advanceBy(b));
+			System.out.println("Binary search yields " + lo + " [" + a + "]");
+		}
+		
+		if (bugDestination.distanceTo(cachedTarget) > myLocation.distanceTo(cachedTarget) && myLocation.distanceTo(cachedTarget) < bugBeginLocation.distanceTo(cachedTarget) - 1)
+		{
+			System.out.println("BugMode broken by worse bugDestination");
+			bugMode = false;
+		}
+	}
 
 	static MapLocation opti;
 	static MapLocation cachedTarget;
@@ -2022,7 +2171,7 @@ public strictfp class RobotPlayer {
 		}
 		debug_johnMadden();
 		preprocessBullets();
-		findBeacon();
+//		findBeacon();
 		MapLocation best = null;
 		long bestVal = 0;
 		int iterations = 0;
@@ -2051,6 +2200,15 @@ public strictfp class RobotPlayer {
 		else if (isGardener || isArchon)
 		{
 			iterlim = 16;
+		}
+		if (freeRange && !isScout)
+		{
+			bugAlgorithm();
+			if (bugMode && bugDestination != null)
+			{
+				best = bugDestination;
+				bestVal = badness(best);
+			}
 		}
 		System.out.println(Clock.getBytecodesLeft() + " left");
 		float base = rand01() * 6.283185307179586476925286766559f;
