@@ -1337,6 +1337,10 @@ public strictfp class RobotPlayer {
 			{
 				ret += 200000 * loc.distanceTo(cachedTarget);
 			}
+			else if (beaconLen > 1)
+			{
+				ret += 1000 * loc.distanceTo(beacons[beaconLen - 1]);
+			}
 			else
 			{
 				ret += 1000 * loc.distanceTo(cachedTarget);
@@ -1354,8 +1358,7 @@ public strictfp class RobotPlayer {
 				float a = theirSpawns[0].directionTo(myOriginalLocation).radiansBetween(theirSpawns[0].directionTo(loc));
 				float s = Math.abs((float) Math.sin(a));
 				float d = loc.distanceTo(theirSpawns[0]) * s;
-				ret -= 300000 * d;
-				System.out.println(d);
+				ret -= 300000 * Math.min(d, 12);
 			}
 		}
 		
