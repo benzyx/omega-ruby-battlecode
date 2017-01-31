@@ -2272,16 +2272,16 @@ public strictfp class RobotPlayer {
 				snap(myLocation);
 				myBugLocation = myLocation;
 				bugTurnDir = 1;
-				MapLocation a = advanceBy(0.1f);
-				MapLocation b = advanceBy(-0.1f);
-				if (a.distanceTo(cachedTarget) < b.distanceTo(cachedTarget))
-				{
-					bugTurnDir = 1;
-				}
-				else
-				{
-					bugTurnDir = -1;
-				}
+//				MapLocation a = advanceBy(0.1f);
+//				MapLocation b = advanceBy(-0.1f);
+//				if (a.distanceTo(cachedTarget) < b.distanceTo(cachedTarget))
+//				{
+//					bugTurnDir = 1;
+//				}
+//				else
+//				{
+//					bugTurnDir = -1;
+//				}
 				bugDestination = advanceBy(0);
 				resetHistory(); 
 			}
