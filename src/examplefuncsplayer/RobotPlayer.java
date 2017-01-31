@@ -287,7 +287,7 @@ public strictfp class RobotPlayer {
 					break;
 				}
 
-				if (isArchon)
+				if (isArchon || isGardener)
 				{
 					if (bounceTarget == null || !rc.canMove(toward(myLocation, bounceTarget, myStride)))
 					{
@@ -1567,8 +1567,7 @@ public strictfp class RobotPlayer {
 				rc.setIndicatorLine(myLocation, targetHex, 0, 255, 255);
 				ret += loc.distanceTo(targetHex) * 1000000;
 			}
-			if (!inHex)
-				ret -= loc.distanceTo(myLocation) * 2000000;
+			ret += 100000 * loc.distanceTo(bounceTarget);
 		}
 		
 
@@ -2520,6 +2519,10 @@ public strictfp class RobotPlayer {
 		if (isLeader)
 		{
 			rc.broadcast(CHANNEL_LEADER_ROUND_TIMESTAMP, round);
+		}
+		if (isGardener)
+		{
+			rc.setIndicatorLine(myLocation, bounceTarget, 200, 200, 200);
 		}
 		burnCycles(Clock.getBytecodesLeft() - 500);
 	}
