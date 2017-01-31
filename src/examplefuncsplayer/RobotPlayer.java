@@ -925,7 +925,7 @@ public strictfp class RobotPlayer {
 					}
 					if (d > 1.75f)
 					{
-						rc.setIndicatorLine(myLocation, loc, 255, 0, 255);
+						debug_line(myLocation, loc, 255, 0, 255);
 						theyHaveGardenerAt(loc);
 						break;
 					}
