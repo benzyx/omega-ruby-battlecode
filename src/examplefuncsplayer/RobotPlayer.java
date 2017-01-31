@@ -2160,6 +2160,10 @@ public strictfp class RobotPlayer {
 				bestD = d;
 				justGoThisWay = null;
 			}
+			if (rc.canShake(info.ID))
+			{
+				rc.shake(info.ID);
+			}
 		}
 		for (RobotInfo info : rc.senseNearbyRobots(loc, myRadius + 1, null))
 		{
