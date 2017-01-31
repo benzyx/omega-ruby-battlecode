@@ -183,47 +183,6 @@ public strictfp class RobotPlayer {
 				rc.broadcastInt(CHANNEL_MAP_START_X, -INFINITY);
 				rc.broadcastInt(CHANNEL_MAP_START_Y, -INFINITY);
 
-				int[] targetDirections = new int[6];
-				
-				for (int i = 0; i < 6; i++)
-					targetDirections[i] = i;
-				
-				int bitstring = 0;
-				
-				for (int i = 0; i < 4; i++) {
-					int minIndex = i;
-					MapLocation minLocation = rally.add(new Direction(targetDirections[i] * 60/57.2957795131f), 2.0f);
-					for (int j = i + 1; j < 6; j++) {
-						MapLocation nextLocation = rally.add(new Direction(targetDirections[j] * 60/57.2957795131f), 2.0f);
-						if (nextLocation.distanceTo(them) < minLocation.distanceTo(them)) {
-							minLocation = nextLocation;
-							minIndex = j;
-						}
-					}
-					int temp = targetDirections[i];
-					targetDirections[i] = targetDirections[minIndex];
-					targetDirections[minIndex] = temp;
-					bitstring |= 1 << targetDirections[i];
-				}
-				
-				rc.broadcast(CHANNEL_TARGET_DIRECTIONS, bitstring);
-				switch (bitstring)
-				{ // 3 to 5 if tanks
-					case 0b111100:
-					case 0b011110:
-					case 0b100111:
-					case 0b110011:
-						hexSize = 3 + 2 + 1 + 1;
-						rowSpacing = 3 + 3 + 1;
-						break;
-					
-					case 0b111001:
-					case 0b001111:
-						hexSize = 3 + 3 + 3;
-						rowSpacing = 3 + 1 + 2 + 2;
-				}
-				rc.broadcast(CHANNEL_HEX_SIZE, (int)hexSize);
-				rc.broadcast(CHANNEL_ROW_SPACING, (int)rowSpacing);
 			}
 			else
 			{
@@ -231,6 +190,54 @@ public strictfp class RobotPlayer {
 			}
 		}
 		destination = readPoint(CHANNEL_RALLY_POINT);
+		
+		MapLocation start = readPoint(CHANNEL_START_LOCATION);
+		MapLocation end = readPoint(CHANNEL_END_LOCATION);
+
+		int[] td = new int[6];
+		
+		for (int i = 0; i < 6; i++)
+			td[i] = i;
+		
+		int bitstring = 0;
+		
+		for (int i = 0; i < 5; i++) {
+			int minIndex = i;
+			MapLocation minLocation = start.add(new Direction(td[i] * 60/57.2957795131f), 2.0f);
+			for (int j = i + 1; j < 6; j++) {
+				MapLocation nextLocation = start.add(new Direction(td[j] * 60/57.2957795131f), 2.0f);
+				if (nextLocation.distanceTo(end) < minLocation.distanceTo(end)) {
+					minLocation = nextLocation;
+					minIndex = j;
+				}
+			}
+			int temp = td[i];
+			td[i] = td[minIndex];
+			td[minIndex] = temp;
+			bitstring |= 1 << td[i];
+		}
+		
+		targetDirections = bitstring;
+		/*
+		switch (bitstring)
+		{ // 3 to 5 if tanks
+			case 0b111100:
+			case 0b011110:
+			case 0b100111:
+			case 0b110011:
+				hexSize = 3 + 2 + 1 + 1;
+				rowSpacing = 3 + 3 + 2;
+				break;
+			
+			case 0b111001:
+			case 0b001111:
+				hexSize = 3 + 3 + 3;
+				rowSpacing = 3 + 1 + 1 + 2;
+		}
+		*/
+
+		hexSize = 3 + 2 + 1 + 1;
+		rowSpacing = 3 + 3 + 2;
 		
 		while (true)
 		{
@@ -2075,15 +2082,15 @@ public strictfp class RobotPlayer {
 	public static void onRoundBegin() throws GameActionException
 	{
 //		debug_resignOver1000();
-		targetDirections = rc.readBroadcast(CHANNEL_TARGET_DIRECTIONS);
+//		targetDirections = rc.readBroadcast(CHANNEL_TARGET_DIRECTIONS);
 		roam = false;
 		theirBase = readPoint(CHANNEL_THEIR_BASE);
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets(myRadius + myStride + 4);
 		myLocation = rc.getLocation();
-		hexSize = rc.readBroadcast(CHANNEL_HEX_SIZE);
-		rowSpacing = rc.readBroadcast(CHANNEL_ROW_SPACING);
+//		hexSize = rc.readBroadcast(CHANNEL_HEX_SIZE);
+//		rowSpacing = rc.readBroadcast(CHANNEL_ROW_SPACING);
 		System.out.printf("Hex size is %f and row spacing is %f\n", hexSize, rowSpacing);
 		if (isArchon) {
 
