@@ -256,11 +256,13 @@ public strictfp class RobotPlayer {
 		hexSize = 3 + 2 + 2 + 1;
 		rowSpacing = 3 + 3 + 2;
 		
-		if (isGardener && trees == 0 && gardeners == 0) {
-			rc.broadcastFloat(CHANNEL_HEX_OFFSET_X, rc.getLocation().x);
-			rc.broadcastFloat(CHANNEL_HEX_OFFSET_Y, rc.getLocation().y);
-		} else {
-			freeRange = true;
+		if (isGardener) {
+			if (trees == 0 && gardeners == 0) {
+				rc.broadcastFloat(CHANNEL_HEX_OFFSET_X, rc.getLocation().x);
+				rc.broadcastFloat(CHANNEL_HEX_OFFSET_Y, rc.getLocation().y);
+			} else {
+				freeRange = true;
+			}
 		}
 		
 		centreOfBase = readPoint(CHANNEL_RALLY_POINT);
@@ -1038,6 +1040,9 @@ public strictfp class RobotPlayer {
 			ret -= loc.distanceTo(closestThreat);
 		}
 		
+		if (targetHex != null)
+			ret += loc.distanceTo(targetHex);
+		
 		return ret;
 	}
 	
@@ -1555,7 +1560,7 @@ public strictfp class RobotPlayer {
 		}
 
 		if (isGardener) {
-			if (targetHex != null && myLocation.distanceTo(targetHex) < 0.1) {
+			if (targetHex != null && myLocation.distanceTo(targetHex) < 0.5) {
 				System.out.println("ROBOT IS IN THE HEX");
 				inHex = true;
 				freeRange = false;
@@ -1592,7 +1597,7 @@ public strictfp class RobotPlayer {
 				if (ri.type == RobotType.GARDENER && ri.ID < rc.getID()) {
 					float range = 10;
 					float d = ri.location.distanceTo(loc) - myRadius * 2;
-					ret += 1000 * (1 / (0.01f + d / range));
+					ret += 100000 * (1 / (0.01f + d / range));
 				}
 			}
 			if (count > 5)
