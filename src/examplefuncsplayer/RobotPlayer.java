@@ -68,6 +68,7 @@ public strictfp class RobotPlayer {
 	static float myStride;
 	static float myRadius;
 	static MapLocation myLocation;
+	static MapLocation myOriginalLocation;
 	static int round;
 	static MapLocation treeBuildTarget;
 	static float controlRadius;
@@ -123,7 +124,7 @@ public strictfp class RobotPlayer {
 		numberOfChannel = myNumberOfChannel();
 		myStride = myType.strideRadius;
 		myRadius = myType.bodyRadius;
-		myLocation = rc.getLocation();
+		myLocation = myOriginalLocation = rc.getLocation();
 		isScout = myType == RobotType.SCOUT;
 		isArchon = myType == RobotType.ARCHON;
 		isGardener = myType == RobotType.GARDENER;
@@ -772,6 +773,7 @@ public strictfp class RobotPlayer {
 	public static void archonSpecificLogic() throws GameActionException
 	{
 		getMacroStats();
+		archonIsSoldierNear = closestEnemyOfType(RobotType.SOLDIER) != null;
 		if (meetsInitialConditions())
 		{
 			round1Planning();
@@ -989,6 +991,8 @@ public strictfp class RobotPlayer {
 		rc.donate((int) (rc.getTeamBullets() / rc.getVictoryPointCost()) * rc.getVictoryPointCost());
 	}
 	
+	static boolean archonIsSoldierNear;
+	
 	static MapLocation findTarget()
 	{
 		if (closestTree != null && (isScout || isLumberjack || (isArchon && round < 50)))
@@ -1052,7 +1056,7 @@ public strictfp class RobotPlayer {
 		}
 		return freeRange ? currentTarget : destination;
 	}
-
+	
 	public static void gardenerSpecificLogic() throws GameActionException
 	{
 		getMacroStats();
@@ -1299,6 +1303,14 @@ public strictfp class RobotPlayer {
 			if (loc.distanceTo(destination) > 6)
 			{
 				ret += 1500 * loc.distanceTo(destination);
+			}
+			if (trees == 0 && !archonIsSoldierNear)
+			{
+				float a = theirSpawns[0].directionTo(myOriginalLocation).radiansBetween(theirSpawns[0].directionTo(loc));
+				float s = Math.abs((float) Math.sin(a));
+				float d = loc.distanceTo(theirSpawns[0]) * s;
+				ret -= 300000 * d;
+				System.out.println(d);
 			}
 		}
 		
