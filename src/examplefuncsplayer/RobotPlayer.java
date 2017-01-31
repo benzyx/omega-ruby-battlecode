@@ -2147,7 +2147,7 @@ public strictfp class RobotPlayer {
 	static float bugTurnDir;
 	static Direction justGoThisWay = null;
 	
-	static void snap(MapLocation loc)
+	static void snap(MapLocation loc) throws GameActionException
 	{
 		float bestD = 1e9f;
 		for (TreeInfo info : rc.senseNearbyTrees(loc, myRadius + 1, null))
@@ -2322,7 +2322,8 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
-	static void followWall(){
+	static void followWall() throws GameActionException
+	{
 		
 		// Didn't follow wall properly last turn
 		if (bugDestination != null && !myLocation.equals(bugDestination))
