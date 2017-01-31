@@ -287,7 +287,7 @@ public strictfp class RobotPlayer {
 					break;
 				}
 
-				if (isArchon)
+				if (isArchon || isGardener)
 				{
 					if (bounceTarget == null || !rc.canMove(toward(myLocation, bounceTarget, myStride)))
 					{
@@ -1567,8 +1567,7 @@ public strictfp class RobotPlayer {
 				rc.setIndicatorLine(myLocation, targetHex, 0, 255, 255);
 				ret += loc.distanceTo(targetHex) * 1000000;
 			}
-			if (!inHex)
-				ret -= loc.distanceTo(myLocation) * 2000000;
+			ret += 100000 * loc.distanceTo(bounceTarget);
 		}
 		
 
@@ -1648,6 +1647,10 @@ public strictfp class RobotPlayer {
 		{
 			for (TreeInfo info : nearbyTrees)
 			{
+				if (info.getTeam() != myTeam)
+				{
+					continue;
+				}
 				float d = info.getLocation().distanceTo(loc) - myRadius - info.radius;
 				if (d < REPULSION_RANGE)
 				{
@@ -2148,7 +2151,7 @@ public strictfp class RobotPlayer {
 	static float bugTurnDir;
 	static Direction justGoThisWay = null;
 	
-	static void snap(MapLocation loc)
+	static void snap(MapLocation loc) throws GameActionException
 	{
 		float bestD = 1e9f;
 		for (TreeInfo info : rc.senseNearbyTrees(loc, myRadius + 1, null))
@@ -2160,6 +2163,10 @@ public strictfp class RobotPlayer {
 				bodyRadius = info.getRadius();
 				bestD = d;
 				justGoThisWay = null;
+			}
+			if (rc.canShake(info.ID))
+			{
+				rc.shake(info.ID);
 			}
 		}
 		for (RobotInfo info : rc.senseNearbyRobots(loc, myRadius + 1, null))
@@ -2319,7 +2326,8 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
-	static void followWall(){
+	static void followWall() throws GameActionException
+	{
 		
 		// Didn't follow wall properly last turn
 		if (bugDestination != null && !myLocation.equals(bugDestination))
@@ -2520,6 +2528,10 @@ public strictfp class RobotPlayer {
 		if (isLeader)
 		{
 			rc.broadcast(CHANNEL_LEADER_ROUND_TIMESTAMP, round);
+		}
+		if (isGardener)
+		{
+			rc.setIndicatorLine(myLocation, bounceTarget, 200, 200, 200);
 		}
 		burnCycles(Clock.getBytecodesLeft() - 500);
 	}
