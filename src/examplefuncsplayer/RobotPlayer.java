@@ -51,6 +51,8 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_TARGET_DIRECTIONS = 5556;
 	public static final int CHANNEL_HEX_SIZE = 5557;
 	public static final int CHANNEL_ROW_SPACING = 5558;
+	public static final int CHANNEL_HEX_OFFSET_X = 5559;
+	public static final int CHANNEL_HEX_OFFSET_Y = 5560;
 	public static final int HEX_TORUS_SIZE = 32;
 
 	public static final float REPULSION_RANGE = 1.7f;
@@ -123,6 +125,7 @@ public strictfp class RobotPlayer {
 
 	public static float hexSize = 9f; // 8f
 	public static float rowSpacing = (float) Math.sqrt(3) / 2.0f * hexSize;
+	public static float offsetHexX, offsetHexY;
 
 	/**
 	 * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -249,8 +252,12 @@ public strictfp class RobotPlayer {
 		hexSize = 3 + 2 + 2 + 1;
 		rowSpacing = 3 + 3 + 2;
 		
-		if (isGardener && trees == 0)
+		if (isGardener && trees == 0 && gardeners == 0) {
+			rc.broadcastFloat(CHANNEL_HEX_OFFSET_X, rc.getLocation().x);
+			rc.broadcastFloat(CHANNEL_HEX_OFFSET_Y, rc.getLocation().y);
+		} else {
 			freeRange = true;
+		}
 		
 		centreOfBase = readPoint(CHANNEL_RALLY_POINT);
 		while (true)
@@ -913,7 +920,7 @@ public strictfp class RobotPlayer {
 						continue;
 					Direction dir = new Direction(theta/57.2957795131f);
 //						rc.setIndicatorDot(myLocation.add(dir, 2.1f), 200, 200, 50);
-					if (rc.canPlantTree(dir))
+					if (rc.canPlantTree(dir) && (canBuild >= 2 || gardeners >= 2))
 					{
 						rc.plantTree(dir);
 						increment(CHANNEL_THING_BUILD_COUNT);
@@ -1267,7 +1274,7 @@ public strictfp class RobotPlayer {
 
 		boolean wantLumberjack = false;
 		boolean wantSoldier = false;
-		if (rc.readBroadcastBoolean(CHANNEL_CRAMPED))
+		if (rc.readBroadcastBoolean(CHANNEL_CRAMPED) && lumberjacks < 3)
 		{
 			wantLumberjack = true;
 		}
@@ -2495,12 +2502,15 @@ public strictfp class RobotPlayer {
 	public static void onRoundBegin() throws GameActionException
 	{
 //		debug_resignOver1000();
+		debug_highlightHexes();
 		roam = false;
 		theirBase = readPoint(CHANNEL_THEIR_BASE);
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets(myRadius + myStride + 4);
 		isLeader = rc.readBroadcast(CHANNEL_LEADER_ID) == rc.getID();
+		offsetHexX = rc.readBroadcastFloat(CHANNEL_HEX_OFFSET_X);
+		offsetHexY = rc.readBroadcastFloat(CHANNEL_HEX_OFFSET_Y);
 		if (round - rc.readBroadcast(CHANNEL_LEADER_ROUND_TIMESTAMP) > 15)
 		{
 			becomeLeader();
@@ -3286,8 +3296,8 @@ public strictfp class RobotPlayer {
 
 	static void findHex(MapLocation loc)
 	{
-		retHelper2 = (int) (loc.y / rowSpacing + 0.5f);
-		retHelper1 = (int) ((loc.x / hexSize - retHelper2 % 2 * 0.5f) + 0.5f);
+		retHelper2 = (int) ((loc.y) / rowSpacing + 0.5f);
+		retHelper1 = (int) (((loc.x) / hexSize - retHelper2 % 2 * 0.5f) + 0.5f);
 	}
 
 	static void initHexes() throws GameActionException
