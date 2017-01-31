@@ -42,12 +42,12 @@ public strictfp class RobotPlayer {
 	
 	
 	// Channels 1500 - 1550 are reserved for storing hex locations
-	public static final int CHANNEL_HEX_LOCATIONS = 1500;
-	public static final int CHANNEL_START_LOCATION = 1552;
-	public static final int CHANNEL_END_LOCATION = 1554;
-	public static final int CHANNEL_TARGET_DIRECTIONS = 1556;
-	public static final int CHANNEL_HEX_SIZE = 1557;
-	public static final int CHANNEL_ROW_SPACING = 1558;
+	public static final int CHANNEL_HEX_LOCATIONS = 5500;
+	public static final int CHANNEL_START_LOCATION = 5552;
+	public static final int CHANNEL_END_LOCATION = 5554;
+	public static final int CHANNEL_TARGET_DIRECTIONS = 5556;
+	public static final int CHANNEL_HEX_SIZE = 5557;
+	public static final int CHANNEL_ROW_SPACING = 5558;
 	
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -208,22 +208,22 @@ public strictfp class RobotPlayer {
 				
 				rc.broadcast(CHANNEL_TARGET_DIRECTIONS, bitstring);
 				switch (bitstring)
-				{
+				{ // 3 to 5 if tanks
 					case 0b111100:
 					case 0b011110:
 					case 0b100111:
 					case 0b110011:
-						hexSize = 2 + 1 + 1 + 5;
-						rowSpacing = 5 + 3 + 1;
+						hexSize = 3 + 2 + 1 + 1;
+						rowSpacing = 3 + 3 + 1;
 						break;
 					
 					case 0b111001:
 					case 0b001111:
-						hexSize = 5 + 3 + 3;
-						rowSpacing = 5 + 1 + 1 + 2;
+						hexSize = 3 + 3 + 3;
+						rowSpacing = 3 + 1 + 2 + 2;
 				}
-				rc.broadcastFloat(CHANNEL_HEX_SIZE, hexSize);
-				rc.broadcastFloat(CHANNEL_ROW_SPACING, rowSpacing);
+				rc.broadcast(CHANNEL_HEX_SIZE, (int)hexSize);
+				rc.broadcast(CHANNEL_ROW_SPACING, (int)rowSpacing);
 			}
 			else
 			{
@@ -738,9 +738,7 @@ public strictfp class RobotPlayer {
 	// When the type parameter is ARCHON, we build a TREE instead.
 	public static boolean attemptBuild(RobotType type) throws GameActionException
 	{
-		System.out.println("trying to build " + type.toString());
 		if (type == RobotType.ARCHON){
-			System.out.println("Attemping to build tree");
 			if (rc.getTeamBullets() < 50 || !rc.hasTreeBuildRequirements())
 			{
 				return false;
@@ -780,7 +778,6 @@ public strictfp class RobotPlayer {
 				}
 				
 				if (inHex) {
-					System.out.println("In hex build");
 					for (int i = 0; i < 6; i++)
 					{
 						float theta = i * 60;
@@ -790,7 +787,6 @@ public strictfp class RobotPlayer {
 //						rc.setIndicatorDot(myLocation.add(dir, 2.1f), 200, 200, 50);
 						if (rc.canPlantTree(dir))
 						{
-							System.out.println("PLANTED TREE");
 							rc.plantTree(dir);
 							increment(CHANNEL_THING_BUILD_COUNT);
 							inHex = true;
@@ -1167,7 +1163,7 @@ public strictfp class RobotPlayer {
 			}
 			if (wantTank) // two hexes up
 			{
-				attemptBuild(RobotType.TANK);
+				//attemptBuild(RobotType.TANK);
 			}
 			attemptBuild(RobotType.ARCHON); // plant a tree
 		}
@@ -2086,9 +2082,9 @@ public strictfp class RobotPlayer {
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets(myRadius + myStride + 4);
 		myLocation = rc.getLocation();
-		hexSize = rc.readBroadcastFloat(CHANNEL_HEX_SIZE);
-		rowSpacing = rc.readBroadcastFloat(CHANNEL_ROW_SPACING);
-		
+		hexSize = rc.readBroadcast(CHANNEL_HEX_SIZE);
+		rowSpacing = rc.readBroadcast(CHANNEL_ROW_SPACING);
+		System.out.printf("Hex size is %f and row spacing is %f\n", hexSize, rowSpacing);
 		if (isArchon) {
 
 			for (int i = 0; i < hexLen; i++)
@@ -2103,14 +2099,6 @@ public strictfp class RobotPlayer {
 			nearbyTrees = rc.senseNearbyTrees(-1, myTeam);
 			neutralTrees = rc.senseNearbyTrees(-1, Team.NEUTRAL);
 			treeBuildTarget = null;
-
-			if (inHex){
-				findHex(myLocation);
-				int tx = retHelper1;
-				int ty = retHelper2;
-				int bit = (1 << ty);
-				writeHexPoint(CHANNEL_HEX_LOCATIONS + tx	% HEX_TORUS_SIZE, bit);
-			}
 		}
 		else
 		{
@@ -2162,10 +2150,20 @@ public strictfp class RobotPlayer {
 			rc.broadcast(newGardenerLocChannel, 0);
 			for (int i = 0; i < 32; i++)
 				rc.broadcast(CHANNEL_HEX_LOCATIONS + i, 0);
+
+			
 			if (theirBaseFound())
 			{
 //				rc.setIndicatorDot(theirBase, 127, 255, 255);
 			}
+		}
+		
+		if (isGardener && inHex) {
+			findHex(myLocation);
+			int tx = retHelper1;
+			int ty = retHelper2;
+			int bit = (1 << ty);
+			writeHexPoint(CHANNEL_HEX_LOCATIONS + tx	% HEX_TORUS_SIZE, bit);
 		}
 		
 		int myWrite = writeNumberChannel(numberOfChannel);
@@ -2952,6 +2950,8 @@ public strictfp class RobotPlayer {
 	static MapLocation shiftInBounds (int x, int y, MapLocation initial, int k) {
 		MapLocation curr = hexToCartesian(x, y);
 		while (curr.x < initial.x - 2.5 * k * hexSize) {
+			System.out.println(curr.x + " " + curr.y + " " + x + " " + y + " " + hexSize + " " + rowSpacing);
+			System.out.println(hexSize * (x + y % 2 * 0.5f) + " " + (y * rowSpacing));
 			x += 32;
 			curr = hexToCartesian(x, y);
 		}
@@ -2965,22 +2965,25 @@ public strictfp class RobotPlayer {
 //		rc.setIndicatorLine(new MapLocation(0, topBound), new MapLocation(1 << 30, topBound), 255, 0, 0);
 //		rc.setIndicatorLine(new MapLocation(0, bottomBound), new MapLocation(1 << 30, bottomBound), 255, 0, 0);
 		if (round > 50) {
+			boolean valid = true;
 			if (leftBound != 100000 && curr.x < leftBound + 1.1) {
 				checkLeft = false;
-				return null;
+				valid = false;
 			}
 			if (topBound != 100000 && curr.y < topBound + 1.1) {
 				checkTop = false;
-				return null;
+				valid = false;
 			}
 			if (rightBound != -100000 && curr.x > rightBound - 1.1) {
 				checkRight = false;
-				return null;
+				valid = false;
 			}
 			if (bottomBound != -100000 && curr.y > bottomBound - 1.1) {
 				checkBottom = false;
-				return null;
+				valid = false;
 			}
+			if (!valid)
+				return null;
 		}
 		
 		return curr;
@@ -2999,9 +3002,11 @@ public strictfp class RobotPlayer {
 		checkRight = true;
 		checkTop = true;
 		checkBottom = true;
-		main : for (int k = 0; k <= 16; k++) {
+		main : for (int k = 0; k <= 10; k++) {
+			System.out.println("CHECKING " + k);
 			// checking top and bottom border
 			for (int i = - k; i <= k; i++) {
+				int curr = Clock.getBytecodeNum();
 				int nx = mod(x + k, 32);
 				int ny = mod(y + i, 32);
 				if (checkBottom && (channels[nx] & 1 << ny) == 0) {
@@ -3030,8 +3035,10 @@ public strictfp class RobotPlayer {
 					if (targetHex != null)
 						break main;
 				}
+				System.out.println(Clock.getBytecodeNum() - curr + " " + checkLeft + " " + checkRight + " " + checkTop + " " + checkBottom);
 			}
 		}
+		System.out.println("FINISHED CHECKING FOUND " + targetHex);
 	}
 	
 	static long crnt = 17;

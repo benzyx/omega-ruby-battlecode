@@ -1036,34 +1036,35 @@ public strictfp class RobotPlayer {
 		}
 		if (isArchon)
 		{
-			RobotInfo gardener = closestFriendOfType(RobotType.GARDENER);
-			if (gardener != null)
-			{
-				RobotInfo soldier = null;
-				float d = 0;
-				for (RobotInfo info : nearbyEnemies)
-				{
-					if (info.type == RobotType.SOLDIER)
-					{
-						float td = info.location.distanceTo(gardener.location);
-						if (soldier == null || td < d)
-						{
-							d = td;
-							soldier = info;
-						}
-					}
-				}
-				if (soldier != null)
-				{
-					ignoreFriendRepulsion = true;
-					MapLocation a = soldier.getLocation();
-					MapLocation b = gardener.getLocation();
-					return a.add(
-							a.directionTo(b),
-							soldier.type.bodyRadius + myRadius + 0.1f); 
-									
-				}
-			}
+			// TODO re-enable
+//			RobotInfo gardener = closestFriendOfType(RobotType.GARDENER);
+//			if (gardener != null)
+//			{
+//				RobotInfo soldier = null;
+//				float d = 0;
+//				for (RobotInfo info : nearbyEnemies)
+//				{
+//					if (info.type == RobotType.SOLDIER)
+//					{
+//						float td = info.location.distanceTo(gardener.location);
+//						if (soldier == null || td < d)
+//						{
+//							d = td;
+//							soldier = info;
+//						}
+//					}
+//				}
+//				if (soldier != null)
+//				{
+//					ignoreFriendRepulsion = true;
+//					MapLocation a = soldier.getLocation();
+//					MapLocation b = gardener.getLocation();
+//					return a.add(
+//							a.directionTo(b),
+//							soldier.type.bodyRadius + myRadius + 0.1f); 
+//									
+//				}
+//			}
 			return null;
 		}
 		if (isGardener)
@@ -1337,6 +1338,10 @@ public strictfp class RobotPlayer {
 			{
 				ret += 200000 * loc.distanceTo(cachedTarget);
 			}
+			else if (beaconLen > 1)
+			{
+				ret += 1000 * loc.distanceTo(beacons[beaconLen - 1]);
+			}
 			else
 			{
 				ret += 1000 * loc.distanceTo(cachedTarget);
@@ -1351,11 +1356,10 @@ public strictfp class RobotPlayer {
 			}
 			if (trees == 0 && !archonIsSoldierNear)
 			{
-				float a = theirSpawns[0].directionTo(myOriginalLocation).radiansBetween(theirSpawns[0].directionTo(loc));
-				float s = Math.abs((float) Math.sin(a));
-				float d = loc.distanceTo(theirSpawns[0]) * s;
-				ret -= 300000 * d;
-				System.out.println(d);
+//				float a = theirSpawns[0].directionTo(myOriginalLocation).radiansBetween(theirSpawns[0].directionTo(loc));
+//				float s = Math.abs((float) Math.sin(a));
+//				float d = loc.distanceTo(theirSpawns[0]) * s;
+//				ret -= 300000 * Math.min(d, 12);
 			}
 		}
 		
@@ -1988,23 +1992,23 @@ public strictfp class RobotPlayer {
 	static MapLocation opti;
 	static MapLocation cachedTarget;
 	
-	static Direction[] preprocessDirections = {
-		new Direction(0.0000000000f),
-		new Direction(3.1415926536f),
-		new Direction(1.5707963268f),
-		new Direction(4.7123889804f),
-		new Direction(0.7853981634f),
-		new Direction(3.9269908170f),
-		new Direction(2.3561944902f),
-		new Direction(5.4977871438f),
-		new Direction(0.3926990817f),
-		new Direction(3.5342917353f),
-		new Direction(1.9634954085f),
-		new Direction(5.1050880621f),
-		new Direction(1.1780972451f),
-		new Direction(4.3196898987f),
-		new Direction(2.7488935719f),
-		new Direction(5.8904862255f)
+	static float[] preprocessDirections = {
+		0.0000000000f,
+		3.1415926536f,
+		1.5707963268f,
+		4.7123889804f,
+		0.7853981634f,
+		3.9269908170f,
+		2.3561944902f,
+		5.4977871438f,
+		0.3926990817f,
+		3.5342917353f,
+		1.9634954085f,
+		5.1050880621f,
+		1.1780972451f,
+		4.3196898987f,
+		2.7488935719f,
+		5.8904862255f
 	};
 
 	public static void selectOptimalMove() throws GameActionException
@@ -2049,75 +2053,27 @@ public strictfp class RobotPlayer {
 			iterlim = 16;
 		}
 		System.out.println(Clock.getBytecodesLeft() + " left");
+		float base = rand01() * 6.283185307179586476925286766559f;
 		while (Clock.getBytecodesLeft() - longest > after && iterations < iterlim)
 		{
 			int t1 = Clock.getBytecodesLeft();
 			float add;
 			MapLocation cand;
-			if (true)
+			if (longest < 500 || nearbyBullets.length == 0)
 			{
-				add = myStride;
-				if (iterations < preprocessDirections.length)
-				{
-					cand = myLocation.add(preprocessDirections[iterations], add);
-				}
-				else
-				{
-					cand = myLocation.add(randomDirection(), add);
-				}
+				add = myStride * rand01();
 			}
 			else
 			{
-				add = myStride * rand() / 360.0f;
-				switch (iterations)
-				{
-				case 0:
-					cand = myLocation;
-					break;
-				case 1:
-					if (cachedTarget == null)
-					{
-						cand = myLocation.add(randomDirection(), add);
-					}
-					else
-					{
-						cand = toward(myLocation, cachedTarget, myStride);
-					}
-					break;
-				case 2:
-					if (nearbyBullets.length != 0)
-					{
-						cand = myLocation.add(nearbyBullets[0].dir.rotateLeftDegrees(90), myStride);
-					}
-					else
-					{
-						cand = myLocation.add(randomDirection(), add);
-					}
-					break;
-				case 3:
-					if (nearbyBullets.length != 0)
-					{
-						cand = myLocation.add(nearbyBullets[0].dir.rotateRightDegrees(90), myStride);
-					}
-					else
-					{
-						cand = myLocation.add(randomDirection(), add);
-					}
-					break;
-				case 4:
-					cand = findMidpoint();
-					if (cand == null)
-					{
-						cand = myLocation.add(randomDirection(), add);
-					}
-					else
-					{
-						rc.setIndicatorLine(myLocation, cand, 255, 127, 0);
-					}
-					break;
-				default:
-					cand = myLocation.add(randomDirection(), add);
-				}
+				add = myStride;
+			}
+			if (iterations < preprocessDirections.length)
+			{
+				cand = myLocation.add(new Direction(base + preprocessDirections[iterations]), add);
+			}
+			else
+			{
+				cand = myLocation.add(randomDirection(), add);
 			}
 			if (rc.canMove(cand))
 			{
