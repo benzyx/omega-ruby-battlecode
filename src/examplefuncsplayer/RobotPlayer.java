@@ -278,34 +278,30 @@ public strictfp class RobotPlayer {
 
 				if (isLumberjack)
 				{
-					float minDist = 99999999;
 					closestTree = null;
-					//            		for (TreeInfo info : nearbyTrees)
-						//            		{
-						//            			if (info.getTeam() == myTeam)
-							//            			{
-							//            				continue;
-							//            			}
-						//            			float d = info.getLocation().distanceTo(destination);
-						//            			if (d < minDist)
-							//            			{
-							//            				minDist = d;
-							//            				closestTree = info;
-							//            			}
-						//            		}
 					TreeInfo myClosestTree = null;
-					minDist = 99999999;
+					TreeInfo myClosestChopTree = null;
+					float minDist = 1e9f;
+					float chopMinDist = 1e9f; 
 					for (TreeInfo info : nearbyTrees)
 					{
 						if (info.getTeam() == myTeam)
 						{
 							continue;
 						}
-						float d = info.getLocation().distanceTo(myLocation);
+						float d = reverseValueOfTree(info);
 						if (d < minDist)
 						{
 							minDist = d;
 							myClosestTree = info;
+						}
+						if (rc.canChop(info.ID))
+						{
+							if (d < chopMinDist)
+							{
+								chopMinDist = d;
+								myClosestChopTree = info;
+							}
 						}
 					}
 
@@ -319,15 +315,17 @@ public strictfp class RobotPlayer {
 					if (myClosestTree != null)
 					{
 						closestTree = myClosestTree;
-						rc.setIndicatorDot(myClosestTree.location, 255, 0, 0);
-						if (rc.canShake(myClosestTree.ID))
+					}
+					if (myClosestChopTree != null)
+					{
+						if (rc.canShake(myClosestChopTree.ID))
 						{
-							rc.setIndicatorDot(myClosestTree.location, 0, 255, 0);
-							rc.shake(myClosestTree.ID);
+							rc.setIndicatorDot(myClosestChopTree.location, 0, 255, 0);
+							rc.shake(myClosestChopTree.ID);
 						}
-						if (rc.canChop(myClosestTree.ID))
+						if (rc.canChop(myClosestChopTree.ID))
 						{
-							rc.chop(myClosestTree.ID);
+							rc.chop(myClosestChopTree.ID);
 							resetHistory();
 						}
 					}
@@ -462,6 +460,35 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
+	private static float reverseValueOfTree(TreeInfo info)
+	{
+		float ret = myLocation.distanceTo(info.location);
+		if (info.containedRobot != null)
+		{
+			switch (info.containedRobot)
+			{
+			case GARDENER:
+				ret -= 10;
+				break;
+			case LUMBERJACK:
+				ret -= 200;
+				break;
+			case SOLDIER:
+				ret -= 150;
+				break;
+			case TANK:
+				ret -= 250;
+				break;
+			case ARCHON:
+				break;
+			case SCOUT:
+				ret -= 20;
+				break;
+			}
+		}
+		return ret;
+	}
+
 	private static boolean canSeeValuableTargets()
 	{
 		for (RobotInfo info : nearbyEnemies)
@@ -2121,10 +2148,6 @@ public strictfp class RobotPlayer {
 			{
 				rc.broadcast(CHANNEL_CONTROL_RADIUS, dist);
 			}
-		}
-		if (closestTree != null)
-		{
-			rc.setIndicatorLine(myLocation, closestTree.getLocation(), 255, 255, 255);
 		}
 		if (rc.hasAttacked())
 		{
