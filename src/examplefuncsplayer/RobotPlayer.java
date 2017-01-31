@@ -39,7 +39,10 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_ARCHON_CRAMP_RECORDING = 132;
 	public static final int CHANNEL_EVER_FOUND_GARDENER = 135;
 	public static final int CHANNEL_LAST_ANYTHING_BUILD_TIME = 136;
-	public static final int ____ = 137;
+	public static final int CHANNEL_FIRST_BUILD_DIRECTION = 137;
+	public static final int CHANNEL_LEADER_ID = 138;
+	public static final int CHANNEL_LEADER_ROUND_TIMESTAMP = 139;
+	public static final int ____ = 140;
 	
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -100,6 +103,7 @@ public strictfp class RobotPlayer {
 	static MapLocation closestThreat;
 	static boolean canSeeThreat;
 	static MapLocation[] ourSpawns;
+	static boolean isLeader;
 	
 	static int retHelper1, retHelper2;
 
@@ -114,7 +118,7 @@ public strictfp class RobotPlayer {
 		// and to get information on its current status.
 		RobotPlayer.rc = rc;
 
-		myType = rc.getType();		
+		myType = rc.getType();
 		myTeam = rc.getTeam();
 		numberOfChannel = myNumberOfChannel();
 		myStride = myType.strideRadius;
@@ -145,6 +149,10 @@ public strictfp class RobotPlayer {
 		{
 			ourSpawns = rc.getInitialArchonLocations(myTeam);
 			sortByDistanceFromMe(ourSpawns);
+			if (myID == 0)
+			{
+				becomeLeader();
+			}
 		}
 		if (myType == RobotType.ARCHON)
 		{
@@ -551,6 +559,12 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
+	static void becomeLeader() throws GameActionException
+	{
+		isLeader = true;
+		rc.broadcast(CHANNEL_LEADER_ID, rc.getID());
+	}
+	
 	public static boolean theirBaseFound() throws GameActionException
 	{
 		return rc.readBroadcastInt(CHANNEL_THEIR_BASE) != 0;
@@ -642,7 +656,7 @@ public strictfp class RobotPlayer {
 		rc.broadcastInt(CHANNEL_ARCHON_CRAMP_RECORDING + myID, cramp);
 		int best = smallestCramp();
 		System.out.println("Cramp = " + cramp + "; best = " + best);
-		if (cramp < best * 1.05f)
+		if (cramp / 100 == best / 100 && cramp % 100 < best % 100 * 1.05f)
 		{
 			executeBuildPlan();
 		}
@@ -651,12 +665,24 @@ public strictfp class RobotPlayer {
 	static Direction[] buildPlan = new Direction[3];
 	static int buildPlanLen = 0;
 	
-	static void executeBuildPlan()
+	static void executeBuildPlan() throws GameActionException
 	{
-		
+		if (buildPlanLen >= 2 || (buildPlanLen == 1 && round >= 30))
+		{
+			becomeLeader();
+			executeBuild(buildPlan[0], RobotType.GARDENER);
+			if (buildPlanLen >= 2)
+			{
+				rc.broadcastFloat(CHANNEL_FIRST_BUILD_DIRECTION, buildPlan[1].radians);
+			}
+			if (buildPlanLen == 1)
+			{
+				rc.disintegrate();
+			}
+		}
 	}
 	
-	static void planFirstBuilds()
+	static void planFirstBuilds() throws GameActionException
 	{
 		buildPlanLen = 0;
 		for (int i = 0; i < 100 && buildPlanLen < 3; i++)
@@ -671,11 +697,11 @@ public strictfp class RobotPlayer {
 	{
 		MapLocation a = myLocation;
 		Direction d1 = randomDirection();
-		MapLocation b = a.add(d1, myRadius + spawnDist);
-		if (rc.isCircleOccupied(b, 1))
+		if (!rc.canBuildRobot(RobotType.GARDENER, d1))
 		{
 			return;
 		}
+		MapLocation b = a.add(d1, myRadius + spawnDist);
 		if (buildPlanLen < 1)
 		{
 			buildPlan[0] = d1;
@@ -683,7 +709,7 @@ public strictfp class RobotPlayer {
 		}
 		Direction d2 = randomDirection();
 		MapLocation c = b.add(d2, 1 + spawnDist);
-		if (rc.isCircleOccupied(c, 1))
+		if (rc.isCircleOccupied(c, 1) || !rc.onTheMap(c, 1))
 		{
 			return;
 		}
@@ -693,7 +719,16 @@ public strictfp class RobotPlayer {
 			buildPlan[1] = d2;
 			buildPlanLen = 2;
 		}
-		Direction d3 = 
+		Direction d3 = randomDirection();
+		MapLocation d = b.add(d3, 1 + spawnDist);
+		if (rc.isCircleOccupied(d, 1) || !rc.onTheMap(d, 1))
+		{
+			return;
+		}
+		buildPlan[0] = d1;
+		buildPlan[1] = d2;
+		buildPlan[2] = d3;
+		buildPlanLen = 3;
 	}
 	
 	static int computeCramp() throws GameActionException
@@ -708,6 +743,8 @@ public strictfp class RobotPlayer {
 				++ret;
 			}
 		}
+		planFirstBuilds();
+		ret += 200 * (3 - buildPlanLen);
 		return ret;
 	}
 	
@@ -718,6 +755,10 @@ public strictfp class RobotPlayer {
 			return false;
 		}
 		if (gardeners > 0)
+		{
+			return false;
+		}
+		if (trees > 0)
 		{
 			return false;
 		}
@@ -805,7 +846,15 @@ public strictfp class RobotPlayer {
 			}
 			float bestValue = 0;
 			Direction bestDir = null;
-			float base = rand01() * 6.283185307179586476925286766559f;
+			float base;
+			if (rc.readBroadcast(CHANNEL_FIRST_BUILD_DIRECTION) != 0)
+			{
+				base = rc.readBroadcastFloat(CHANNEL_FIRST_BUILD_DIRECTION);
+			}
+			else
+			{
+				base = rand01() * 6.283185307179586476925286766559f;
+			}
 			for (int i = 0; i < 12; i++)
 			{
 				Direction dir = new Direction(base + i * 6.283185307179586476925286766559f / 12);
@@ -862,6 +911,7 @@ public strictfp class RobotPlayer {
 		}
 		rc.broadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME, round);
 		increment(CHANNEL_THING_BUILD_COUNT);
+		rc.broadcast(CHANNEL_FIRST_BUILD_DIRECTION, 0);
 	}
 	
 	private static RobotInfo closestEnemyOfType(RobotType t)
@@ -1096,10 +1146,7 @@ public strictfp class RobotPlayer {
 		boolean wantSoldier = false;
 		if (rc.readBroadcastBoolean(CHANNEL_CRAMPED))
 		{
-			if (lumberjacks < 2 && lumberjacks < trees)
-			{
-				wantLumberjack = true;
-			}
+			wantLumberjack = true;
 		}
 		else
 		{
@@ -1140,11 +1187,15 @@ public strictfp class RobotPlayer {
 				rc.setIndicatorDot(myLocation, 0, 255, 0);
 				attemptBuild(RobotType.ARCHON); // plant a tree
 			}
+			if (wantLumberjack)
+			{
+				attemptBuild(RobotType.LUMBERJACK);
+			}
 			if (wantSoldier)
 			{
 				attemptBuild(RobotType.SOLDIER);
 			}
-			if (wantLumberjack)
+			if (neutralTrees.length != 0)
 			{
 				attemptBuild(RobotType.LUMBERJACK);
 			}
@@ -1206,7 +1257,13 @@ public strictfp class RobotPlayer {
 	{
 		if (isArchon && meetsInitialConditions())
 		{
-			return rand();
+			switch (round / 6 % 4)
+			{
+			case 0: return (long) (1000 * loc.x);
+			case 1: return (long) (1000 * loc.y);
+			case 2: return (long) (1000 * -loc.x);
+			case 3: return (long) (1000 * -loc.y);
+			}
 		}
 		
 		long ret = 0;
@@ -1225,6 +1282,11 @@ public strictfp class RobotPlayer {
 			if (isScout && closestTree != null)
 			{
 				ret += 100000 * loc.distanceTo(cachedTarget);
+			}
+			else if (isLumberjack && closestTree != null)
+			{
+				debug_checkClosestTreeEqualToCachedTarget();
+				ret += 100000 * Math.max(0f, loc.distanceTo(cachedTarget) - closestTree.radius - 1 - myRadius);
 			}
 			else
 			{
@@ -1383,12 +1445,12 @@ public strictfp class RobotPlayer {
 				{
 					ret += 1000 * (1 / (0.01f + d / REPULSION_RANGE));
 				}
+				if (d - 1 > REPULSION_RANGE)
+				{
+					break;
+				}
 			}    		
 		}
-//		if (reflection != null)
-//		{
-//			ret += 20000 * loc.distanceTo(reflection);
-//		}
 		
 		if (!isArchon)
 		{
@@ -1406,6 +1468,10 @@ public strictfp class RobotPlayer {
 					{
 						ret += 2000 * (3 - d);
 					}
+					if (d - 1 > 3)
+					{
+						break;
+					}
 				}
 			}
 		}
@@ -1413,6 +1479,13 @@ public strictfp class RobotPlayer {
 		return ret;
 	}
 	
+	private static void debug_checkClosestTreeEqualToCachedTarget() {
+		if (cachedTarget.distanceTo(closestTree.location) > 0.001f)
+		{
+			throw new RuntimeException();
+		}
+	}
+
 	private static final float BULLET_HIT_WEIGHT = 200000000;
 	private static final float HALFPI = 1.5707963267948966192313216916398f;
 
@@ -2039,6 +2112,10 @@ public strictfp class RobotPlayer {
 		{
 			lastAttackRound = round;
 		}
+		if (isLeader)
+		{
+			rc.broadcast(CHANNEL_LEADER_ROUND_TIMESTAMP, round);
+		}
 		burnCycles(Clock.getBytecodesLeft() - 500);
 	}
 	
@@ -2058,6 +2135,11 @@ public strictfp class RobotPlayer {
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
 		nearbyEnemies = rc.senseNearbyRobots(100, myTeam.opponent());
 		nearbyBullets = rc.senseNearbyBullets(myRadius + myStride + 4);
+		isLeader = rc.readBroadcast(CHANNEL_LEADER_ID) == rc.getID();
+		if (round - rc.readBroadcast(CHANNEL_LEADER_ROUND_TIMESTAMP) > 15)
+		{
+			becomeLeader();
+		}
 		if (isGardener)
 		{
 			nearbyTrees = rc.senseNearbyTrees(-1, myTeam);
@@ -2246,7 +2328,7 @@ public strictfp class RobotPlayer {
 			freeRange = false;
 		}
 		debug_highlightGrid();
-		if (isArchon && myID == 0)
+		if (isLeader)
 		{
 			if (round == 8 || (round % 100 == 0 && rc.readBroadcastBoolean(CHANNEL_CRAMPED)))
 			{
