@@ -57,6 +57,7 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_HEX_OFFSET_X = 5559;
 	public static final int CHANNEL_HEX_OFFSET_Y = 5560;
 	public static final int HEX_TORUS_SIZE = 32;
+	public static boolean wantTree = false;
 
 	public static final float REPULSION_RANGE = 1.7f;
 
@@ -940,6 +941,7 @@ public strictfp class RobotPlayer {
 	public static boolean attemptBuild(RobotType type) throws GameActionException
 	{
 		if (type == RobotType.ARCHON){
+			wantTree = true;
 			System.out.println("BUILDING A TREE " + inHex);
 			if (rc.getTeamBullets() < 50 || !rc.hasTreeBuildRequirements())
 			{
@@ -1289,7 +1291,7 @@ public strictfp class RobotPlayer {
 		debug_printMacroStats();
 		
 		boolean wantGardener = false;
-		if (gardeners < trees / 4 + 1 || (rc.getTeamBullets() > 350 && gardeners < trees / 2)) // indicates some kind of blockage
+		if (gardeners < trees / 4 + 1 || (rc.getTeamBullets() > 250 && gardeners < trees / 2)) // indicates some kind of blockage
 		{
 			if (gardeners > 0 || (rc.getTeamBullets() >= 300 && round == 1))
 			{
@@ -1558,7 +1560,7 @@ public strictfp class RobotPlayer {
 				inHex = true;
 				freeRange = false;
 			}
-			if (targetHex != null) {
+			if (targetHex != null && (wantTree || gardeners == 0)) {
 				rc.setIndicatorLine(myLocation, targetHex, 0, 255, 255);
 				ret += loc.distanceTo(targetHex) * 1000000;
 			}
