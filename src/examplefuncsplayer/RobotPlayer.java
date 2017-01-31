@@ -255,7 +255,7 @@ public strictfp class RobotPlayer {
 		rowSpacing = 3 + 3 + 2;
 		
 		if (isGardener) {
-			if (trees == 0 && gardeners == 0) {
+			if (myID == 0) {
 				rc.broadcastFloat(CHANNEL_HEX_OFFSET_X, rc.getLocation().x);
 				rc.broadcastFloat(CHANNEL_HEX_OFFSET_Y, rc.getLocation().y);
 			} else {
@@ -2606,12 +2606,15 @@ public strictfp class RobotPlayer {
 		}
 
 		if (isGardener && inHex) {
-			findHex(myLocation);
+			findHex(targetHex);
 			freeRange = false;
 			int tx = retHelper1;
 			int ty = retHelper2;
 			int bit = (1 << ty);
-			writeHexPoint(CHANNEL_HEX_LOCATIONS + tx	% HEX_TORUS_SIZE, bit);
+			System.out.println("OCCUPIED " + tx + " " + ty);
+			System.out.println("MAP COORDINATE IS " + hexToCartesian(tx, ty).toString());
+			System.out.println("TARGET HEX IS " + targetHex);
+			writeHexPoint(CHANNEL_HEX_LOCATIONS + tx % HEX_TORUS_SIZE, bit);
 		}
 
 		int myWrite = writeNumberChannel(numberOfChannel);
@@ -3328,14 +3331,14 @@ public strictfp class RobotPlayer {
 	static MapLocation hexToCartesian(int x, int y)
 	{
 		return new MapLocation(
-				hexSize * (x + y % 2 * 0.5f),
-				y * rowSpacing);
+				hexSize * (x + y % 2 * 0.5f) + offsetHexX,
+				y * rowSpacing + offsetHexY);
 	}
 
 	static void findHex(MapLocation loc)
 	{
-		retHelper2 = (int) ((loc.y) / rowSpacing + 0.5f);
-		retHelper1 = (int) (((loc.x) / hexSize - retHelper2 % 2 * 0.5f) + 0.5f);
+		retHelper2 = (int) ((loc.y - offsetHexY) / rowSpacing + 0.5f);
+		retHelper1 = (int) (((loc.x - offsetHexX) / hexSize - retHelper2 % 2 * 0.5f) + 0.5f);
 	}
 
 	static void initHexes() throws GameActionException
@@ -3433,10 +3436,19 @@ public strictfp class RobotPlayer {
 			x += 32;
 			curr = hexToCartesian(x, y);
 		}
+		while (curr.x > initial.x + 2.5 * k * hexSize) {
+			x -= 32;
+			curr = hexToCartesian(x, y);
+		}
 		while (curr.y < initial.y - 2.5 * k * hexSize) {
 			y += 32;
 			curr = hexToCartesian(x, y);
 		}
+		while (curr.y > initial.y + 2.5 * k * hexSize) {
+			y -= 32;
+			curr = hexToCartesian(x, y);
+		}
+//		System.out.println("SHIFTED IN BOUNDS " + curr.toString());
 		rc.setIndicatorDot(curr, 255, 0, 0);
 //		rc.setIndicatorLine(new MapLocation(leftBound, 0), new MapLocation(leftBound, 1 << 30), 255, 0, 0);
 //		rc.setIndicatorLine(new MapLocation(rightBound, 0), new MapLocation(rightBound, 1 << 30), 255, 0, 0);
@@ -3481,7 +3493,6 @@ public strictfp class RobotPlayer {
 		checkTop = true;
 		checkBottom = true;
 		main : for (int k = 0; k <= 10; k++) {
-			System.out.println("CHECKING " + k);
 			// checking top and bottom border
 			for (int i = - k; i <= k; i++) {
 				int curr = Clock.getBytecodeNum();
@@ -3489,31 +3500,47 @@ public strictfp class RobotPlayer {
 				int ny = mod(y + i, 32);
 				if (checkTop && (channels[nx] & 1 << ny) == 0) {
 					targetHex = shiftInBounds(nx, ny, myLocation, k + 1);
-					if (targetHex != null)
+					if (targetHex != null) {
+						System.out.println("FOUND " + nx + " " + ny);
+						System.out.println("MAP COORDINATE IS " + hexToCartesian(nx, ny).toString());
+						System.out.println("TARGET HEX IS " + targetHex.toString());
 						break main;
+					}
 				}
 				nx = mod(x - k, 32);
 				if (checkBottom && (channels[nx] & 1 << ny) == 0) {
 					targetHex = shiftInBounds(nx, ny, myLocation, k + 1);
-					if (targetHex != null)
+					if (targetHex != null) {
+						System.out.println("FOUND " + nx + " " + ny);
+						System.out.println("MAP COORDINATE IS " + hexToCartesian(nx, ny).toString());
+						System.out.println("TARGET HEX IS " + targetHex.toString());
 						break main;
+					}
 				}
 
 				nx = mod(x + i, 32);
 				ny = mod(y + k, 32);
 				if (checkRight && (channels[nx] & 1 << ny) == 0) {
 					targetHex = shiftInBounds(nx, ny, myLocation, k + 1);
-					if (targetHex != null)
+					if (targetHex != null) {
+						System.out.println("FOUND " + nx + " " + ny);
+						System.out.println("MAP COORDINATE IS " + hexToCartesian(nx, ny).toString());
+						System.out.println("TARGET HEX IS " + targetHex.toString());
 						break main;
+					}
 				}
 				ny = mod(y - k, 32);
 
 				if (checkLeft && (channels[nx] & 1 << ny) == 0) {
 					targetHex = shiftInBounds(nx, ny, myLocation, k + 1);
-					if (targetHex != null)
+					if (targetHex != null) {
+						System.out.println("FOUND " + nx + " " + ny);
+						System.out.println("MAP COORDINATE IS " + hexToCartesian(nx, ny).toString());
+						System.out.println("TARGET HEX IS " + targetHex.toString());
 						break main;
+					}
 				}
-				System.out.println(Clock.getBytecodeNum() - curr + " " + checkLeft + " " + checkRight + " " + checkTop + " " + checkBottom);
+//				System.out.println(Clock.getBytecodeNum() - curr + " " + checkLeft + " " + checkRight + " " + checkTop + " " + checkBottom);
 			}
 		}
 		System.out.println("FINISHED CHECKING FOUND " + targetHex);
