@@ -1172,7 +1172,7 @@ public strictfp class RobotPlayer {
 			gardenerIsProtectedByArchon = false;
 			RobotInfo soldier = closestEnemyOfType(RobotType.SOLDIER);
 			RobotInfo archon = closestFriendOfType(RobotType.ARCHON);
-			if (archon != null)
+			if (archon != null && soldier != null)
 			{
 				ignoreFriendRepulsion = true;
 				MapLocation a;
@@ -1197,14 +1197,17 @@ public strictfp class RobotPlayer {
 				if (result.x < leftBound + 4 ||
 						result.y < topBound + 4 ||
 						result.x > rightBound - 4 ||
-						result.y > bottomBound - 4)
-				{
+						result.y > bottomBound - 4){
 					return centreOfBase;
 				}
 				else
 				{
 					return result;
 				}
+			}
+			else
+			{
+				if (targetHex != null) currentTarget = targetHex;
 			}
 		}
 		return freeRange ? currentTarget : centreOfBase;
