@@ -49,7 +49,7 @@ public strictfp class RobotPlayer {
 	static float topBound, leftBound, bottomBound, rightBound;
 	static RobotController rc;
 	static int myID;
-	static MapLocation destination = null;
+	static MapLocation centreOfBase = null;
 	static MapLocation currentTarget = null;
 	//    static Direction prevDirection = randomDirection();
 	static RobotInfo[] nearbyEnemies;
@@ -181,7 +181,7 @@ public strictfp class RobotPlayer {
 				//        		freeRange = true; // suicide mission
 			}
 		}
-		destination = readPoint(CHANNEL_RALLY_POINT);
+		centreOfBase = readPoint(CHANNEL_RALLY_POINT);
 		while (true)
 		{
 			try {
@@ -193,7 +193,7 @@ public strictfp class RobotPlayer {
 					skipToNextRound = false;
 					continue;
 				}
-				destination = readPoint(CHANNEL_RALLY_POINT);
+				centreOfBase = readPoint(CHANNEL_RALLY_POINT);
 				switch (myType)
 				{
 				case GARDENER:
@@ -802,7 +802,7 @@ public strictfp class RobotPlayer {
 				{
 					continue;
 				}
-				float d = cand.distanceTo(destination);
+				float d = cand.distanceTo(myLocation);
 				if (d < minDist)
 				{
 					best = cand;
@@ -823,6 +823,8 @@ public strictfp class RobotPlayer {
 					{
 						rc.plantTree(dir);
 						increment(CHANNEL_THING_BUILD_COUNT);
+						rc.broadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME, round);
+						writePoint(CHANNEL_RALLY_POINT, myLocation);
 						return true;
 					}
 					else
@@ -1043,9 +1045,13 @@ public strictfp class RobotPlayer {
 				{
 					a = soldier.getLocation();
 				}
-				else
+				else if (rc.senseNearbyTrees(-1, myTeam).length == 0)
 				{
 					a = theirSpawns[0];
+				}
+				else
+				{
+					return centreOfBase;
 				}
 				MapLocation b = archon.getLocation();
 				MapLocation c = myLocation;
@@ -1054,7 +1060,7 @@ public strictfp class RobotPlayer {
 						archon.type.bodyRadius + myRadius + 0.2f + archon.type.strideRadius);
 			}
 		}
-		return freeRange ? currentTarget : destination;
+		return freeRange ? currentTarget : centreOfBase;
 	}
 	
 	public static void gardenerSpecificLogic() throws GameActionException
@@ -1300,9 +1306,9 @@ public strictfp class RobotPlayer {
 		else if (isArchon)
 		{
 			ret += 1000 * loc.distanceTo(closestThreat);
-			if (loc.distanceTo(destination) > 6)
+			if (loc.distanceTo(centreOfBase) > 6)
 			{
-				ret += 1500 * loc.distanceTo(destination);
+				ret += 1500 * loc.distanceTo(centreOfBase);
 			}
 			if (trees == 0 && !archonIsSoldierNear)
 			{
@@ -1397,7 +1403,7 @@ public strictfp class RobotPlayer {
 			}
 			if (count > 5)
 			{
-				ret -= 10000 * loc.distanceTo(destination);
+				ret -= 10000 * loc.distanceTo(centreOfBase);
 			}
 			else
 			{
@@ -2009,7 +2015,7 @@ public strictfp class RobotPlayer {
 			int t1 = Clock.getBytecodesLeft();
 			float add;
 			MapLocation cand;
-			if (longest > 500 && nearbyBullets.length >= 5)
+			if (true)
 			{
 				add = myStride;
 				if (iterations < preprocessDirections.length)
@@ -2110,7 +2116,7 @@ public strictfp class RobotPlayer {
 	{
 		if (isGardener)
 		{
-			int dist = (int) ((myLocation.distanceTo(destination) + 7) * 1000);
+			int dist = (int) ((myLocation.distanceTo(centreOfBase) + 7) * 1000);
 			if (dist > rc.readBroadcast(CHANNEL_CONTROL_RADIUS))
 			{
 				rc.broadcast(CHANNEL_CONTROL_RADIUS, dist);
@@ -2187,7 +2193,7 @@ public strictfp class RobotPlayer {
 		aggro = rc.readBroadcast(CHANNEL_ATTACK) != 0;
 		happyPlace = readPoint(CHANNEL_HAPPY_PLACE);
 
-		float d = myLocation.distanceTo(destination);
+		float d = myLocation.distanceTo(centreOfBase);
 		if (controlRadius - 1 < d && d < controlRadius + 1)
 		{
 			writePoint(CHANNEL_HAPPY_PLACE, myLocation);
