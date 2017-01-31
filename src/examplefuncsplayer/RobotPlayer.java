@@ -1647,6 +1647,10 @@ public strictfp class RobotPlayer {
 		{
 			for (TreeInfo info : nearbyTrees)
 			{
+				if (info.getTeam() != myTeam)
+				{
+					continue;
+				}
 				float d = info.getLocation().distanceTo(loc) - myRadius - info.radius;
 				if (d < REPULSION_RANGE)
 				{
