@@ -2033,6 +2033,56 @@ public strictfp class RobotPlayer {
 				bestD = d;
 			}
 		}
+		TreeInfo[] edgeTrees = new TreeInfo[] {
+				new TreeInfo(-1, null, new MapLocation(leftBound, (int) loc.y), 0.5f, 0, 0, null),
+				new TreeInfo(-1, null, new MapLocation(leftBound, (int) loc.y + 1), 0.5f, 0, 0, null),
+				new TreeInfo(-1, null, new MapLocation(rightBound, (int) loc.y), 0.5f, 0, 0, null),
+				new TreeInfo(-1, null, new MapLocation(rightBound, (int) loc.y + 1), 0.5f, 0, 0, null),
+				new TreeInfo(-1, null, new MapLocation((int) loc.x, topBound), 0.5f, 0, 0, null),
+				new TreeInfo(-1, null, new MapLocation((int) loc.x + 1, topBound), 0.5f, 0, 0, null),
+				new TreeInfo(-1, null, new MapLocation((int) loc.x, bottomBound), 0.5f, 0, 0, null),
+				new TreeInfo(-1, null, new MapLocation((int) loc.x + 1, bottomBound), 0.5f, 0, 0, null)
+		};
+		for (TreeInfo info : edgeTrees)
+		{
+			float d = loc.distanceTo(info.location) - info.getRadius();
+			if (d < bestD)
+			{
+				bodyCentre = info.location;
+				bodyRadius = info.getRadius();
+				bestD = d;
+			}
+		}
+//		float far = 32;
+//		float margin = 0.2f;
+//		float topDist = Math.max(0f, loc.y - myRadius - (topBound + margin));
+//		float leftDist = Math.max(0f, loc.x - myRadius - (leftBound + margin));
+//		float rightDist = Math.max(0f, (rightBound - margin) - loc.x - myRadius);
+//		float bottomDist = Math.max(0f, (bottomBound - margin) - loc.y - myRadius);
+//		if (topDist < bestD)
+//		{
+//			bestD = topDist;
+//			bodyCentre = new MapLocation(loc.x, (topBound + margin) - far);
+//			bodyRadius = far;
+//		}
+//		if (leftDist < bestD)
+//		{
+//			bestD = leftDist;
+//			bodyCentre = new MapLocation((leftBound + margin) - far, loc.y);
+//			bodyRadius = far;
+//		}
+//		if (bottomDist < bestD)
+//		{
+//			bestD = bottomDist;
+//			bodyCentre = new MapLocation(loc.x, (bottomBound - margin) + far);
+//			bodyRadius = far;
+//		}
+//		if (rightDist < bestD)
+//		{
+//			bestD = rightDist;
+//			bodyCentre = new MapLocation((rightBound - margin) + far, loc.y);
+//			bodyRadius = far;
+//		}
 	}
 	
 	static MapLocation advanceBy(float stride)
@@ -2044,12 +2094,21 @@ public strictfp class RobotPlayer {
 	static final float PI = 3.1415926535897932384626433832795f;
 	static final float TAU = 6.283185307179586476925286766559f;
 	
-	static void bugAlgorithm(){
+	static void bugAlgorithm() throws GameActionException {
 		if (bugMode){
 			if (savedDestination.distanceTo(cachedTarget) > 4){
 				bugMode = false;
 			}
-			if (!rc.canSenseLocation(bodyCentre) || !rc.isLocationOccupied(bodyCentre))
+			MapLocation cen = bodyCentre.add(bodyCentre.directionTo(myLocation), bodyRadius - 0.001f);
+			if (!rc.canSenseLocation(cen))
+			{
+				bugMode = false;
+			}
+			else if (rc.canSenseAllOfCircle(bodyCentre, bodyRadius) && !rc.onTheMap(bodyCentre, bodyRadius))
+			{
+				; // this is OK: indicates virtual tree
+			}
+			else if (!rc.isLocationOccupied(cen))
 			{
 				bugMode = false;
 			}
@@ -2058,8 +2117,6 @@ public strictfp class RobotPlayer {
 		{
 			rc.setIndicatorLine(myLocation, bodyCentre, 255, 0, 255);
 			followWall();
-			rc.setIndicatorLine(myLocation, bodyCentre, 0, 0, 255);
-			rc.setIndicatorLine(myLocation, bugDestination, 255, 127, 0);
 		}
 		if (!bugMode && cachedTarget != null)
 		{
@@ -2083,8 +2140,9 @@ public strictfp class RobotPlayer {
 		else
 		{
 			// debug point
-			rc.setIndicatorLine(myLocation, bugDestination, 0, 255, 255);
 			rc.setIndicatorDot(bugDestination, 0, 255, 255);
+			rc.setIndicatorLine(myLocation, bodyCentre, 0, 0, 255);
+			rc.setIndicatorLine(myLocation, bugDestination, 255, 127, 0);
 			
 			System.out.println("Current spot = " + myLocation);
 			System.out.println("Final spot = " + bugDestination.x + " " + bugDestination.y);
@@ -2599,10 +2657,11 @@ public strictfp class RobotPlayer {
 	static void findBounds() throws GameActionException
 	{
 		float r = myType.sensorRadius - 0.1f;
-		float lx = myLocation.x - r;
-		float rx = myLocation.x + r;
-		float ty = myLocation.y - r;
-		float by = myLocation.y + r;
+		float eps = 0.001f;
+		float lx = Math.max(leftBound + eps, myLocation.x - r);
+		float rx = Math.min(rightBound - eps, myLocation.x + r);
+		float ty = Math.max(topBound + eps, myLocation.y - r);
+		float by = Math.min(bottomBound - eps, myLocation.y + r);
 		if (lx > leftBound && !rc.onTheMap(new MapLocation(lx, myLocation.y)))
 		{
 			rc.broadcastFloat(CHANNEL_MAP_LEFT, lx);
