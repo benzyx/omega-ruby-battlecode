@@ -59,7 +59,7 @@ public strictfp class RobotPlayer {
 	static TreeInfo[] neutralTrees;
 //	static MapLocation[] repellers = new MapLocation[25];
 //	static int[] repelWeight = new int[25];
-    static MapLocation[] history = new MapLocation[10];
+    static MapLocation[] history = new MapLocation[30];
 	static TreeInfo closestTree = null;	// scouts use this to shake trees
 	static int numberOfChannel;
 	static RobotType myType;
@@ -1477,7 +1477,7 @@ public strictfp class RobotPlayer {
 				}
 			}
 		}
-		else if (!ignoreFriendRepulsion)
+		else if (!ignoreFriendRepulsion && !canBug())
 		{
 			for (RobotInfo info : nearbyFriends)
 			{
@@ -2049,6 +2049,10 @@ public strictfp class RobotPlayer {
 			if (savedDestination.distanceTo(cachedTarget) > 4){
 				bugMode = false;
 			}
+			if (!rc.canSenseLocation(bodyCentre) || !rc.isLocationOccupied(bodyCentre))
+			{
+				bugMode = false;
+			}
 		}
 		if (bugMode)
 		{
@@ -2069,6 +2073,7 @@ public strictfp class RobotPlayer {
 				snap(myLocation);
 				myBugLocation = myLocation;
 				bugDestination = advanceBy(0);
+				resetHistory();
 			}
 		}
 		if (!bugMode)
@@ -2159,6 +2164,11 @@ public strictfp class RobotPlayer {
 		2.7488935719f,
 		5.8904862255f
 	};
+	
+	static boolean canBug()
+	{
+		return freeRange && !isScout;
+	}
 
 	public static void selectOptimalMove() throws GameActionException
 	{
@@ -2201,7 +2211,7 @@ public strictfp class RobotPlayer {
 		{
 			iterlim = 16;
 		}
-		if (freeRange && !isScout)
+		if (canBug())
 		{
 			bugAlgorithm();
 			if (bugMode && bugDestination != null)
@@ -2909,6 +2919,22 @@ public strictfp class RobotPlayer {
 				return false;
 			}
 			if (history[i].distanceTo(myLocation) > 2)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	static boolean checkBugBlocked()
+	{
+		for (int i = 0; i < history.length; i++)
+		{
+			if (history[i] == null)
+			{
+				return false;
+			}
+			if (history[i].distanceTo(myLocation) > 2 * (myRadius + bodyRadius + 0.2f))
 			{
 				return false;
 			}
