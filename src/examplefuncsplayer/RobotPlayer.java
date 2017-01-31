@@ -2252,7 +2252,7 @@ public strictfp class RobotPlayer {
 	
 	static void bugAlgorithm() throws GameActionException {
 		if (bugMode){
-			if (savedDestination.distanceTo(cachedTarget) > 4)
+			if (cachedTarget != null && savedDestination.distanceTo(cachedTarget) > 4)
 			{
 				System.out.println("Destination changed");
 				bugMode = false;
