@@ -876,6 +876,10 @@ public strictfp class RobotPlayer {
 	{
 		getMacroStats();
 		archonIsSoldierNear = closestEnemyOfType(RobotType.SOLDIER) != null;
+		if (round == 4)
+		{
+			findTheirGardener();
+		}
 		if (meetsInitialConditions())
 		{
 			round1Planning();
@@ -885,6 +889,24 @@ public strictfp class RobotPlayer {
 			macro();
 		}
 		burnCycles(Clock.getBytecodesLeft() / 2 - 500);
+	}
+	
+	static void findTheirGardener() throws GameActionException
+	{
+		MapLocation[] locs = rc.senseBroadcastingRobotLocations();
+		for (MapLocation x : locs)
+		{
+			float d = 1e9f;
+			for (MapLocation spawn : theirSpawns)
+			{
+				d = Math.min(d, x.distanceTo(spawn));
+			}
+			if (2.5f < d && d < 5f)
+			{
+				writePoint(CHANNEL_THEIR_BASE, x);
+				rc.broadcastBoolean(CHANNEL_EVER_FOUND_GARDENER, true);
+			}
+		}
 	}
 
 	// When the type parameter is ARCHON, we build a TREE instead.
