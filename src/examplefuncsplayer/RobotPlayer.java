@@ -794,6 +794,10 @@ public strictfp class RobotPlayer {
 		{
 			return false;
 		}
+		if (canSeeThreat)
+		{
+			return false;
+		}
 		return true;
 	}
 
@@ -825,7 +829,7 @@ public strictfp class RobotPlayer {
 			for (int i = 0; i < hexLen; i++)
 			{
 				MapLocation cand = hexes[i];
-				if (rc.canSenseAllOfCircle(cand, 1) && (rc.isCircleOccupiedExceptByThisRobot(cand, GameConstants.BULLET_TREE_RADIUS) || !rc.onTheMap(cand, 1)))
+				if (!rc.canSenseAllOfCircle(cand, 1) || rc.isCircleOccupiedExceptByThisRobot(cand, GameConstants.BULLET_TREE_RADIUS) || !rc.onTheMap(cand, 1))
 				{
 					continue;
 				}
@@ -889,8 +893,9 @@ public strictfp class RobotPlayer {
 			for (int i = 0; i < 12; i++)
 			{
 				Direction dir = new Direction(base + i * 6.283185307179586476925286766559f / 12);
-				MapLocation loc = myLocation.add(dir, myRadius + type.bodyRadius + GameConstants.GENERAL_SPAWN_OFFSET);
-				if (rc.canBuildRobot(type, dir)){
+				if (rc.canBuildRobot(type, dir))
+				{
+					MapLocation loc = myLocation.add(dir, myRadius + type.bodyRadius + GameConstants.GENERAL_SPAWN_OFFSET);
 					float v = evaluateBuildGoodness(loc);
 					if (bestDir == null || v > bestValue)
 					{
@@ -1021,6 +1026,7 @@ public strictfp class RobotPlayer {
 	}
 	
 	static boolean archonIsSoldierNear;
+	static boolean gardenerIsProtectedByArchon;
 	
 	static MapLocation findTarget()
 	{
@@ -1062,6 +1068,7 @@ public strictfp class RobotPlayer {
 		}
 		if (isGardener)
 		{
+			gardenerIsProtectedByArchon = false;
 			RobotInfo soldier = closestEnemyOfType(RobotType.SOLDIER);
 			RobotInfo archon = closestFriendOfType(RobotType.ARCHON);
 			if (archon != null)
@@ -1070,6 +1077,7 @@ public strictfp class RobotPlayer {
 				MapLocation a;
 				if (soldier != null)
 				{
+					gardenerIsProtectedByArchon = true;
 					a = soldier.getLocation();
 				}
 				else if (rc.senseNearbyTrees(-1, myTeam).length == 0)
@@ -1324,6 +1332,10 @@ public strictfp class RobotPlayer {
 			{
 				debug_checkClosestTreeEqualToCachedTarget();
 				ret += 100000 * Math.max(0f, loc.distanceTo(cachedTarget) - closestTree.radius - 1 - myRadius);
+			}
+			else if (gardenerIsProtectedByArchon)
+			{
+				ret += 200000 * loc.distanceTo(cachedTarget);
 			}
 			else
 			{
@@ -2934,7 +2946,7 @@ public strictfp class RobotPlayer {
 					for (int j = 0; ; j++)
 					{
 						MapLocation loc = hexToCartesian(bx + i, by + j);
-						if (rc.canSenseAllOfCircle(loc, 1) && rc.onTheMap(loc, 1))
+						if (rc.canSenseAllOfCircle(loc, 1))
 						{
 							hexes[hexLen++] = loc;
 						}
@@ -2950,7 +2962,7 @@ public strictfp class RobotPlayer {
 					for (int j = -1; ; j--)
 					{
 						MapLocation loc = hexToCartesian(bx + i, by + j);
-						if (rc.canSenseAllOfCircle(loc, 1) && rc.onTheMap(loc, 1))
+						if (rc.canSenseAllOfCircle(loc, 1))
 						{
 							hexes[hexLen++] = loc;
 						}
@@ -2968,7 +2980,7 @@ public strictfp class RobotPlayer {
 					for (int j = 0; ; j++)
 					{
 						MapLocation loc = hexToCartesian(bx + i, by + j);
-						if (rc.canSenseAllOfCircle(loc, 1) && rc.onTheMap(loc, 1))
+						if (rc.canSenseAllOfCircle(loc, 1))
 						{
 							hexes[hexLen++] = loc;
 						}
@@ -2984,7 +2996,7 @@ public strictfp class RobotPlayer {
 					for (int j = -1; ; j--)
 					{
 						MapLocation loc = hexToCartesian(bx + i, by + j);
-						if (rc.canSenseAllOfCircle(loc, 1) && rc.onTheMap(loc, 1))
+						if (rc.canSenseAllOfCircle(loc, 1))
 						{
 							hexes[hexLen++] = loc;
 						}
