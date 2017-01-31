@@ -2107,86 +2107,104 @@ public strictfp class RobotPlayer {
 	static MapLocation bodyCentre;
 	static float bodyRadius;
 	static MapLocation myBugLocation;
+	static float bugTurnDir;
+	static Direction justGoThisWay = null;
 	
 	static void snap(MapLocation loc)
 	{
 		float bestD = 1e9f;
 		for (TreeInfo info : rc.senseNearbyTrees(loc, myRadius + 1, null))
 		{
-			float d = loc.distanceTo(info.location) - info.getRadius();
+			float d = loc.distanceTo(info.location) - info.getRadius() - myRadius;
 			if (d < bestD)
 			{
 				bodyCentre = info.location;
 				bodyRadius = info.getRadius();
 				bestD = d;
+				justGoThisWay = null;
 			}
 		}
 		for (RobotInfo info : rc.senseNearbyRobots(loc, myRadius + 1, null))
 		{
-			float d = loc.distanceTo(info.location) - info.getRadius();
+			float d = loc.distanceTo(info.location) - info.getRadius() - myRadius;
 			if (d < bestD)
 			{
 				bodyCentre = info.location;
 				bodyRadius = info.getRadius();
 				bestD = d;
+				justGoThisWay = null;
 			}
 		}
-		TreeInfo[] edgeTrees = new TreeInfo[] {
-				new TreeInfo(-1, null, new MapLocation(leftBound, (int) loc.y), 0.5f, 0, 0, null),
-				new TreeInfo(-1, null, new MapLocation(leftBound, (int) loc.y + 1), 0.5f, 0, 0, null),
-				new TreeInfo(-1, null, new MapLocation(rightBound, (int) loc.y), 0.5f, 0, 0, null),
-				new TreeInfo(-1, null, new MapLocation(rightBound, (int) loc.y + 1), 0.5f, 0, 0, null),
-				new TreeInfo(-1, null, new MapLocation((int) loc.x, topBound), 0.5f, 0, 0, null),
-				new TreeInfo(-1, null, new MapLocation((int) loc.x + 1, topBound), 0.5f, 0, 0, null),
-				new TreeInfo(-1, null, new MapLocation((int) loc.x, bottomBound), 0.5f, 0, 0, null),
-				new TreeInfo(-1, null, new MapLocation((int) loc.x + 1, bottomBound), 0.5f, 0, 0, null)
-		};
-		for (TreeInfo info : edgeTrees)
+//		TreeInfo[] edgeTrees = new TreeInfo[] {
+//				new TreeInfo(-1, null, new MapLocation(leftBound, (int) loc.y), 0.5f, 0, 0, null),
+//				new TreeInfo(-1, null, new MapLocation(leftBound, (int) loc.y + 1), 0.5f, 0, 0, null),
+//				new TreeInfo(-1, null, new MapLocation(rightBound, (int) loc.y), 0.5f, 0, 0, null),
+//				new TreeInfo(-1, null, new MapLocation(rightBound, (int) loc.y + 1), 0.5f, 0, 0, null),
+//				new TreeInfo(-1, null, new MapLocation((int) loc.x, topBound), 0.5f, 0, 0, null),
+//				new TreeInfo(-1, null, new MapLocation((int) loc.x + 1, topBound), 0.5f, 0, 0, null),
+//				new TreeInfo(-1, null, new MapLocation((int) loc.x, bottomBound), 0.5f, 0, 0, null),
+//				new TreeInfo(-1, null, new MapLocation((int) loc.x + 1, bottomBound), 0.5f, 0, 0, null)
+//		};
+//		for (TreeInfo info : edgeTrees)
+//		{
+//			float d = loc.distanceTo(info.location) - info.getRadius();
+//			if (d < bestD)
+//			{
+//				bodyCentre = info.location;
+//				bodyRadius = info.getRadius();
+//				bestD = d;
+//			}
+//		}
+		System.out.println("d = " + bestD);
+		float far = 1;
+		float margin = 0;
+		float bugTurnDir;
+		float topDist = Math.max(0, loc.y - myRadius - (topBound + margin));
+		float leftDist = Math.max(0, loc.x - myRadius - (leftBound + margin));
+		float rightDist = Math.max(0, (rightBound - margin) - loc.x - myRadius);
+		float bottomDist = Math.max(0, (bottomBound - margin) - loc.y - myRadius);
+		if (topDist < bestD)
 		{
-			float d = loc.distanceTo(info.location) - info.getRadius();
-			if (d < bestD)
-			{
-				bodyCentre = info.location;
-				bodyRadius = info.getRadius();
-				bestD = d;
-			}
+			bestD = topDist;
+			bodyCentre = new MapLocation(loc.x, (topBound + margin) - far);
+			bodyRadius = far;
+			justGoThisWay = Direction.EAST;
 		}
-//		float far = 32;
-//		float margin = 0.2f;
-//		float topDist = Math.max(0f, loc.y - myRadius - (topBound + margin));
-//		float leftDist = Math.max(0f, loc.x - myRadius - (leftBound + margin));
-//		float rightDist = Math.max(0f, (rightBound - margin) - loc.x - myRadius);
-//		float bottomDist = Math.max(0f, (bottomBound - margin) - loc.y - myRadius);
-//		if (topDist < bestD)
-//		{
-//			bestD = topDist;
-//			bodyCentre = new MapLocation(loc.x, (topBound + margin) - far);
-//			bodyRadius = far;
-//		}
-//		if (leftDist < bestD)
-//		{
-//			bestD = leftDist;
-//			bodyCentre = new MapLocation((leftBound + margin) - far, loc.y);
-//			bodyRadius = far;
-//		}
-//		if (bottomDist < bestD)
-//		{
-//			bestD = bottomDist;
-//			bodyCentre = new MapLocation(loc.x, (bottomBound - margin) + far);
-//			bodyRadius = far;
-//		}
-//		if (rightDist < bestD)
-//		{
-//			bestD = rightDist;
-//			bodyCentre = new MapLocation((rightBound - margin) + far, loc.y);
-//			bodyRadius = far;
-//		}
+		if (leftDist < bestD)
+		{
+			bestD = leftDist;
+			bodyCentre = new MapLocation((leftBound + margin) - far, loc.y);
+			bodyRadius = far;
+			justGoThisWay = Direction.SOUTH;
+		}
+		if (bottomDist < bestD)
+		{
+			bestD = bottomDist;
+			bodyCentre = new MapLocation(loc.x, (bottomBound - margin) + far);
+			bodyRadius = far;
+			justGoThisWay = Direction.WEST;
+		}
+		if (rightDist < bestD)
+		{
+			bestD = rightDist;
+			bodyCentre = new MapLocation((rightBound - margin) + far, loc.y);
+			bodyRadius = far;
+			justGoThisWay = Direction.NORTH;
+		}
+		System.out.println("d = " + bestD);
 	}
 	
 	static MapLocation advanceBy(float stride)
 	{
-		float r = bodyRadius + myRadius + 0.001f;
-		return bodyCentre.add(bodyCentre.directionTo(myBugLocation).rotateRightRads(stride / r), r);
+		if (justGoThisWay != null)
+		{
+			return myBugLocation.add(justGoThisWay, bugTurnDir * stride);
+		}
+		else
+		{
+			float r = bodyRadius + myRadius + 0.001f;
+			return bodyCentre.add(bodyCentre.directionTo(myBugLocation).rotateRightRads(bugTurnDir * stride / r), r);
+		}
 	}
 	
 	static final float PI = 3.1415926535897932384626433832795f;
@@ -2194,20 +2212,24 @@ public strictfp class RobotPlayer {
 	
 	static void bugAlgorithm() throws GameActionException {
 		if (bugMode){
-			if (savedDestination.distanceTo(cachedTarget) > 4){
+			if (savedDestination.distanceTo(cachedTarget) > 4)
+			{
+				System.out.println("Destination changed");
 				bugMode = false;
 			}
-			MapLocation cen = bodyCentre.add(bodyCentre.directionTo(myLocation), bodyRadius - 0.001f);
-			if (!rc.canSenseLocation(cen))
+			MapLocation cen = toward(myLocation, bodyCentre, myType.sensorRadius - 0.1f);
+			if (justGoThisWay != null)
 			{
-				bugMode = false;
+				; // edge of map
 			}
-			else if (rc.canSenseAllOfCircle(bodyCentre, bodyRadius) && !rc.onTheMap(bodyCentre, bodyRadius))
-			{
-				; // this is OK: indicates virtual tree
-			}
+//			else if (!rc.canSenseLocation(cen))
+//			{
+//				System.out.println("Can't sense");
+//				bugMode = false;
+//			}
 			else if (!rc.isLocationOccupied(cen))
 			{
+				System.out.println("Vacant");
 				bugMode = false;
 			}
 		}
@@ -2227,8 +2249,19 @@ public strictfp class RobotPlayer {
 				savedDestination = cachedTarget;
 				snap(myLocation);
 				myBugLocation = myLocation;
+				bugTurnDir = 1;
+				MapLocation a = advanceBy(0.1f);
+				MapLocation b = advanceBy(-0.1f);
+				if (a.distanceTo(cachedTarget) < b.distanceTo(cachedTarget))
+				{
+					bugTurnDir = 1;
+				}
+				else
+				{
+					bugTurnDir = -1;
+				}
 				bugDestination = advanceBy(0);
-				resetHistory();
+				resetHistory(); 
 			}
 		}
 		if (!bugMode)
@@ -2259,7 +2292,7 @@ public strictfp class RobotPlayer {
 			return;
 		}
 		
-		float stride = RobotPlayer.myStride - 0.02f;
+		float stride = RobotPlayer.myStride - 0.01f;
 
 		myBugLocation = myLocation;
 		MapLocation ideal = advanceBy(stride);
@@ -2374,6 +2407,15 @@ public strictfp class RobotPlayer {
 			{
 				best = bugDestination;
 				bestVal = badness(best);
+			}
+		}
+		if (best == null && cachedTarget != null)
+		{
+			MapLocation cand = toward(myLocation, cachedTarget, myStride);
+			if (rc.canMove(cand))
+			{
+				best = cand;
+				bestVal = badness(best);				
 			}
 		}
 		System.out.println(Clock.getBytecodesLeft() + " left");
@@ -2777,7 +2819,15 @@ public strictfp class RobotPlayer {
 	
 	static void findBounds() throws GameActionException
 	{
-		float r = myType.sensorRadius - 0.1f;
+		float r;
+		if (bugMode)
+		{
+			r = myRadius + 0.001f;
+		}
+		else
+		{
+			r = myType.sensorRadius - 0.1f;
+		}
 		float eps = 0.001f;
 		float lx = Math.max(leftBound + eps, myLocation.x - r);
 		float rx = Math.min(rightBound - eps, myLocation.x + r);
