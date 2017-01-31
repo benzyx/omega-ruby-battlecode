@@ -891,74 +891,39 @@ public strictfp class RobotPlayer {
 	public static boolean attemptBuild(RobotType type) throws GameActionException
 	{
 		if (type == RobotType.ARCHON){
+			System.out.println("BUILDING A TREE " + inHex);
 			if (rc.getTeamBullets() < 50 || !rc.hasTreeBuildRequirements())
 			{
 				return false;
 			}
-			float minDist = 99999999;
-			MapLocation best = null;
-			for (int i = 0; i < hexLen; i++)
-			{
-				MapLocation cand = hexes[i];
-				if (!rc.canSenseAllOfCircle(cand, 1) || rc.isCircleOccupiedExceptByThisRobot(cand, GameConstants.BULLET_TREE_RADIUS) || !rc.onTheMap(cand, 1))
-				{
-					continue;
+			if (inHex) {
+				int canBuild = 0;
+				for (int i = 0; i < 6; i++) {
+					float theta = i * 60;
+					Direction dir = new Direction(theta/57.2957795131f);
+					if (rc.canPlantTree(dir))
+						canBuild++;
+					
 				}
-				float d = cand.distanceTo(myLocation);
-				if (d < minDist)
+				System.out.println("CAN BUILD IS " + canBuild);
+				for (int i = 0; i < 6; i++)
 				{
-					best = cand;
-					minDist = d;
-				}
-			}
-			if (best != null)
-			{
-
-				rc.setIndicatorDot(best, 0, 255, 0);
-				if (targetHex != null && best.distanceTo(targetHex) < myStride && rc.canMove(best) && !rc.hasMoved()) 
-				{
-					rc.move(best);
-					myLocation = rc.getLocation();
-					if (myLocation.distanceTo(targetHex) < 0.1) {
-						inHex = true;
-						freeRange = false;
-						findHex(myLocation);
-						writeHexPoint(CHANNEL_HEX_LOCATIONS + retHelper1 % HEX_TORUS_SIZE, 1 << retHelper2);
-						System.out.println("THE ROBOT IS IN THE HEX");
-						System.out.println(myLocation.toString());
-						System.out.println(targetHex.toString());
-					}
-				}
-				
-				if (inHex) {
-					int canBuild = 0;
-					for (int i = 0; i < 6; i++) {
-						float theta = i * 60;
-						Direction dir = new Direction(theta/57.2957795131f);
-						if (rc.canPlantTree(dir))
-							canBuild++;
-						
-					}
-					for (int i = 0; i < 6; i++)
-					{
-						float theta = i * 60;
-						if ((targetDirections & 1 << i) == 0)
-							continue;
-						Direction dir = new Direction(theta/57.2957795131f);
+					float theta = i * 60;
+					if ((targetDirections & 1 << i) == 0)
+						continue;
+					Direction dir = new Direction(theta/57.2957795131f);
 //						rc.setIndicatorDot(myLocation.add(dir, 2.1f), 200, 200, 50);
-						if (rc.canPlantTree(dir) && (canBuild >= 2 || gardeners >= 3))
-						{
-							rc.plantTree(dir);
-							increment(CHANNEL_THING_BUILD_COUNT);
-							rc.broadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME, round);
-							writePoint(CHANNEL_RALLY_POINT, myLocation);
-							inHex = true;
-							return true;
-						}
+					if (rc.canPlantTree(dir))
+					{
+						rc.plantTree(dir);
+						increment(CHANNEL_THING_BUILD_COUNT);
+						rc.broadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME, round);
+						writePoint(CHANNEL_RALLY_POINT, myLocation);
+						inHex = true;
+						return true;
 					}
-				} else {
-					return onTreeBuildFail();
 				}
+				return onTreeBuildFail();
 			}
 			else
 			{
@@ -1007,7 +972,6 @@ public strictfp class RobotPlayer {
 				return true;
 			}
 		}
-		return false;
 	}
 	
 	private static float evaluateBuildGoodness(MapLocation loc) throws GameActionException
@@ -1172,7 +1136,7 @@ public strictfp class RobotPlayer {
 			gardenerIsProtectedByArchon = false;
 			RobotInfo soldier = closestEnemyOfType(RobotType.SOLDIER);
 			RobotInfo archon = closestFriendOfType(RobotType.ARCHON);
-			if (archon != null)
+			if (archon != null && soldier != null)
 			{
 				ignoreFriendRepulsion = true;
 				MapLocation a;
@@ -1197,14 +1161,17 @@ public strictfp class RobotPlayer {
 				if (result.x < leftBound + 4 ||
 						result.y < topBound + 4 ||
 						result.x > rightBound - 4 ||
-						result.y > bottomBound - 4)
-				{
+						result.y > bottomBound - 4){
 					return centreOfBase;
 				}
 				else
 				{
 					return result;
 				}
+			}
+			else
+			{
+				if (targetHex != null) currentTarget = targetHex;
 			}
 		}
 		return freeRange ? currentTarget : centreOfBase;
@@ -1538,7 +1505,9 @@ public strictfp class RobotPlayer {
 
 		if (isGardener) {
 			if (targetHex != null && myLocation.distanceTo(targetHex) < 0.1) {
+				System.out.println("ROBOT IS IN THE HEX");
 				inHex = true;
+				freeRange = false;
 			}
 			if (targetHex != null) {
 				rc.setIndicatorLine(myLocation, targetHex, 0, 255, 255);
