@@ -2147,7 +2147,7 @@ public strictfp class RobotPlayer {
 
 	public static void onRoundBegin() throws GameActionException
 	{
-		debug_resignOver1000();
+//		debug_resignOver1000();
 		roam = false;
 		theirBase = readPoint(CHANNEL_THEIR_BASE);
 		nearbyFriends = rc.senseNearbyRobots(100, myTeam);
