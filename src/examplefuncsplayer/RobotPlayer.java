@@ -42,7 +42,10 @@ public strictfp class RobotPlayer {
 	public static final int CHANNEL_FIRST_BUILD_DIRECTION = 137;
 	public static final int CHANNEL_LEADER_ID = 138;
 	public static final int CHANNEL_LEADER_ROUND_TIMESTAMP = 139;
-	public static final int ____ = 140;
+	public static final int CHANNEL_THEIRBASE_IS_GARDENER = 140;
+	public static final int CHANNEL_OUR_BUILDS = 141;
+	public static final int MAX_OUR_BUILD_LEN = 20;
+	public static final int ____ = 182;
 	
 	// Channels 1500 - 1550 are reserved for storing hex locations
 	public static final int CHANNEL_HEX_LOCATIONS = 5500;
@@ -876,10 +879,7 @@ public strictfp class RobotPlayer {
 	{
 		getMacroStats();
 		archonIsSoldierNear = closestEnemyOfType(RobotType.SOLDIER) != null;
-		if (round == 4)
-		{
-			findTheirGardener();
-		}
+		broadcastSensingMagic();
 		if (meetsInitialConditions())
 		{
 			round1Planning();
@@ -891,22 +891,42 @@ public strictfp class RobotPlayer {
 		burnCycles(Clock.getBytecodesLeft() / 2 - 500);
 	}
 	
-	static void findTheirGardener() throws GameActionException
+	static MapLocation[] prevBroadcasts;
+	static int prevRound = -1;
+	static void broadcastSensingMagic() throws GameActionException
 	{
-		MapLocation[] locs = rc.senseBroadcastingRobotLocations();
-		for (MapLocation x : locs)
+		MapLocation[] broadcasts = rc.senseBroadcastingRobotLocations();
+		MapLocation[] ourBuilds = readPointArray(CHANNEL_OUR_BUILDS);
+		if (round == prevRound + 1)
 		{
-			float d = 1e9f;
-			for (MapLocation spawn : theirSpawns)
+			if (broadcasts.length * (prevBroadcasts.length + ourBuilds.length) < 400)
 			{
-				d = Math.min(d, x.distanceTo(spawn));
-			}
-			if (2.5f < d && d < 5f)
-			{
-				writePoint(CHANNEL_THEIR_BASE, x);
-				rc.broadcastBoolean(CHANNEL_EVER_FOUND_GARDENER, true);
+				loop:
+				for (MapLocation loc : broadcasts)
+				{
+					for (MapLocation us : ourBuilds)
+					{
+						if (loc.distanceTo(us) < 5)
+						{
+							continue loop;
+						}
+					}
+					float d = 1e9f;
+					for (MapLocation oth : prevBroadcasts)
+					{
+						d = Math.min(d, loc.distanceTo(oth));
+					}
+					if (d > 1.75f)
+					{
+						rc.setIndicatorLine(myLocation, loc, 255, 0, 255);
+						theyHaveGardenerAt(loc);
+						break;
+					}
+				}
 			}
 		}
+		prevRound = round;
+		prevBroadcasts = broadcasts;
 	}
 
 	// When the type parameter is ARCHON, we build a TREE instead.
@@ -1026,6 +1046,7 @@ public strictfp class RobotPlayer {
 		rc.broadcast(CHANNEL_LAST_ANYTHING_BUILD_TIME, round);
 		increment(CHANNEL_THING_BUILD_COUNT);
 		rc.broadcast(CHANNEL_FIRST_BUILD_DIRECTION, 0);
+		pushToPointArray(CHANNEL_OUR_BUILDS, myLocation, MAX_OUR_BUILD_LEN);
 	}
 	
 	private static RobotInfo closestEnemyOfType(RobotType t)
@@ -2769,14 +2790,14 @@ public strictfp class RobotPlayer {
 			switch (info.getType())
 			{
 			case GARDENER:
-				writePoint(CHANNEL_THEIR_BASE, info.getLocation());
-				rc.broadcastBoolean(CHANNEL_EVER_FOUND_GARDENER, true);
+				theyHaveGardenerAt(info.location);
 				break loop;
 			case SOLDIER:
 			case LUMBERJACK:
 				if (rc.readBroadcastBoolean(CHANNEL_EVER_FOUND_GARDENER) && !theirBaseFound())
 				{
 					writePoint(CHANNEL_THEIR_BASE, info.getLocation());
+					rc.broadcastBoolean(CHANNEL_THEIRBASE_IS_GARDENER, false);
 				}
 				break; // switch
 			default:
@@ -2818,6 +2839,13 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
+	private static void theyHaveGardenerAt(MapLocation loc) throws GameActionException
+	{
+		writePoint(CHANNEL_THEIR_BASE, loc);
+		rc.broadcastBoolean(CHANNEL_EVER_FOUND_GARDENER, true);
+		rc.broadcastBoolean(CHANNEL_THEIRBASE_IS_GARDENER, true);
+	}
+
 	static boolean noNeutralTrees()
 	{
 		for (TreeInfo info : nearbyTrees)
@@ -3555,6 +3583,28 @@ public strictfp class RobotPlayer {
 	public static void increment(int channel) throws GameActionException
 	{
 		rc.broadcastInt(channel, rc.readBroadcastInt(channel) + 1);
+	}
+	
+	public static void pushToPointArray(int channel, MapLocation val, int maxLen) throws GameActionException
+	{
+		int v = rc.readBroadcastInt(channel);
+		if (v == maxLen)
+		{
+			return;
+		}
+		rc.broadcastInt(channel, v + 1);
+		writePoint(channel + 1 + v * 2, val);
+	}
+	
+	public static MapLocation[] readPointArray(int channel) throws GameActionException
+	{
+		int len = rc.readBroadcastInt(channel);
+		MapLocation[] ret = new MapLocation[len];
+		for (int i = 0; i < len; i++)
+		{
+			ret[i] = readPoint(channel + 1 + 2 * i);
+		}
+		return ret;
 	}
 
 	public static void writeHexPoint(int rowchannel, int bitstring) throws GameActionException
