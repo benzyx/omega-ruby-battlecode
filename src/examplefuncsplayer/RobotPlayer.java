@@ -1091,9 +1091,20 @@ public strictfp class RobotPlayer {
 				}
 				MapLocation b = archon.getLocation();
 				MapLocation c = myLocation;
-				return b.add(
+				MapLocation result = b.add(
 						a.directionTo(b),
 						archon.type.bodyRadius + myRadius + 0.2f + archon.type.strideRadius);
+				if (result.x < leftBound + 4 ||
+						result.y < topBound + 4 ||
+						result.x > rightBound - 4 ||
+						result.y > bottomBound - 4)
+				{
+					return centreOfBase;
+				}
+				else
+				{
+					return result;
+				}
 			}
 		}
 		return freeRange ? currentTarget : centreOfBase;
