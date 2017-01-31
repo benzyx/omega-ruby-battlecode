@@ -1100,35 +1100,34 @@ public strictfp class RobotPlayer {
 		}
 		if (isArchon)
 		{
-			// TODO re-enable
-//			RobotInfo gardener = closestFriendOfType(RobotType.GARDENER);
-//			if (gardener != null)
-//			{
-//				RobotInfo soldier = null;
-//				float d = 0;
-//				for (RobotInfo info : nearbyEnemies)
-//				{
-//					if (info.type == RobotType.SOLDIER)
-//					{
-//						float td = info.location.distanceTo(gardener.location);
-//						if (soldier == null || td < d)
-//						{
-//							d = td;
-//							soldier = info;
-//						}
-//					}
-//				}
-//				if (soldier != null)
-//				{
-//					ignoreFriendRepulsion = true;
-//					MapLocation a = soldier.getLocation();
-//					MapLocation b = gardener.getLocation();
-//					return a.add(
-//							a.directionTo(b),
-//							soldier.type.bodyRadius + myRadius + 0.1f); 
-//									
-//				}
-//			}
+			RobotInfo gardener = closestFriendOfType(RobotType.GARDENER);
+			if (gardener != null)
+			{
+				RobotInfo soldier = null;
+				float d = 0;
+				for (RobotInfo info : nearbyEnemies)
+				{
+					if (info.type == RobotType.SOLDIER)
+					{
+						float td = info.location.distanceTo(gardener.location);
+						if (soldier == null || td < d)
+						{
+							d = td;
+							soldier = info;
+						}
+					}
+				}
+				if (soldier != null)
+				{
+					ignoreFriendRepulsion = true;
+					MapLocation a = soldier.getLocation();
+					MapLocation b = gardener.getLocation();
+					return a.add(
+							a.directionTo(b),
+							soldier.type.bodyRadius + myRadius + 0.1f); 
+									
+				}
+			}
 			return null;
 		}
 		if (isGardener)
@@ -1136,7 +1135,7 @@ public strictfp class RobotPlayer {
 			gardenerIsProtectedByArchon = false;
 			RobotInfo soldier = closestEnemyOfType(RobotType.SOLDIER);
 			RobotInfo archon = closestFriendOfType(RobotType.ARCHON);
-			if (archon != null && soldier != null)
+			if (archon != null)
 			{
 				ignoreFriendRepulsion = true;
 				MapLocation a;
@@ -1434,10 +1433,10 @@ public strictfp class RobotPlayer {
 			}
 			if (trees == 0 && !archonIsSoldierNear)
 			{
-//				float a = theirSpawns[0].directionTo(myOriginalLocation).radiansBetween(theirSpawns[0].directionTo(loc));
-//				float s = Math.abs((float) Math.sin(a));
-//				float d = loc.distanceTo(theirSpawns[0]) * s;
-//				ret -= 300000 * Math.min(d, 12);
+				float a = theirSpawns[0].directionTo(myOriginalLocation).radiansBetween(theirSpawns[0].directionTo(loc));
+				float s = Math.abs((float) Math.sin(a));
+				float d = loc.distanceTo(theirSpawns[0]) * s;
+				ret -= 300000 * Math.min(d, 12);
 			}
 		}
 		
