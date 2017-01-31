@@ -246,8 +246,11 @@ public strictfp class RobotPlayer {
 		}
 		*/
 		
-		hexSize = 3 + 2 + 1 + 1;
-		rowSpacing = 4 + 3 + 2;
+		hexSize = 3 + 2 + 2 + 1;
+		rowSpacing = 3 + 3 + 2;
+		
+		if (isGardener && trees == 0)
+			freeRange = true;
 		
 		centreOfBase = readPoint(CHANNEL_RALLY_POINT);
 		while (true)
@@ -337,7 +340,7 @@ public strictfp class RobotPlayer {
 					selectOptimalMove();
 					MapLocation loc = opti;
 
-					if (rc.canMove(loc))
+					if (rc.canMove(loc) && (!isGardener || !inHex))
 					{
 						rc.move(loc);
 						myLocation = loc;
@@ -918,6 +921,7 @@ public strictfp class RobotPlayer {
 					myLocation = rc.getLocation();
 					if (myLocation.distanceTo(targetHex) < 0.1) {
 						inHex = true;
+						freeRange = false;
 						findHex(myLocation);
 						writeHexPoint(CHANNEL_HEX_LOCATIONS + retHelper1 % HEX_TORUS_SIZE, 1 << retHelper2);
 						System.out.println("THE ROBOT IS IN THE HEX");
@@ -927,6 +931,14 @@ public strictfp class RobotPlayer {
 				}
 				
 				if (inHex) {
+					int canBuild = 0;
+					for (int i = 0; i < 6; i++) {
+						float theta = i * 60;
+						Direction dir = new Direction(theta/57.2957795131f);
+						if (rc.canPlantTree(dir))
+							canBuild++;
+						
+					}
 					for (int i = 0; i < 6; i++)
 					{
 						float theta = i * 60;
@@ -934,7 +946,7 @@ public strictfp class RobotPlayer {
 							continue;
 						Direction dir = new Direction(theta/57.2957795131f);
 //						rc.setIndicatorDot(myLocation.add(dir, 2.1f), 200, 200, 50);
-						if (rc.canPlantTree(dir))
+						if (rc.canPlantTree(dir) && (canBuild >= 2 || gardeners >= 3))
 						{
 							rc.plantTree(dir);
 							increment(CHANNEL_THING_BUILD_COUNT);
@@ -1525,6 +1537,9 @@ public strictfp class RobotPlayer {
 		}
 
 		if (isGardener) {
+			if (targetHex != null && myLocation.distanceTo(targetHex) < 0.1) {
+				inHex = true;
+			}
 			if (targetHex != null) {
 				rc.setIndicatorLine(myLocation, targetHex, 0, 255, 255);
 				ret += loc.distanceTo(targetHex) * 1000000;
@@ -1551,6 +1566,13 @@ public strictfp class RobotPlayer {
 				{
 					++count;
 					tot += 1000 * (1 / (0.01f + d / range));
+				}
+			}
+			for (RobotInfo ri : nearbyFriends) {
+				if (ri.type == RobotType.GARDENER && ri.ID < rc.getID()) {
+					float range = 10;
+					float d = ri.location.distanceTo(loc) - myRadius * 2;
+					ret += 1000 * (1 / (0.01f + d / range));
 				}
 			}
 			if (count > 5)
@@ -2580,6 +2602,7 @@ public strictfp class RobotPlayer {
 
 		if (isGardener && inHex) {
 			findHex(myLocation);
+			freeRange = false;
 			int tx = retHelper1;
 			int ty = retHelper2;
 			int bit = (1 << ty);
