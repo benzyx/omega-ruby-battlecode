@@ -340,7 +340,7 @@ public strictfp class RobotPlayer {
 					selectOptimalMove();
 					MapLocation loc = opti;
 
-					if (rc.canMove(loc))
+					if (rc.canMove(loc) && (!isGardener || !inHex))
 					{
 						rc.move(loc);
 						myLocation = loc;
@@ -919,7 +919,7 @@ public strictfp class RobotPlayer {
 				{
 					rc.move(best);
 					myLocation = rc.getLocation();
-					if (myLocation.distanceTo(targetHex) < 0.5) {
+					if (myLocation.distanceTo(targetHex) < 0.1) {
 						inHex = true;
 						freeRange = false;
 						findHex(myLocation);
@@ -946,7 +946,7 @@ public strictfp class RobotPlayer {
 							continue;
 						Direction dir = new Direction(theta/57.2957795131f);
 //						rc.setIndicatorDot(myLocation.add(dir, 2.1f), 200, 200, 50);
-						if (rc.canPlantTree(dir) && canBuild >= 2)
+						if (rc.canPlantTree(dir) && (canBuild >= 2 || gardeners >= 3))
 						{
 							rc.plantTree(dir);
 							increment(CHANNEL_THING_BUILD_COUNT);
@@ -1537,6 +1537,9 @@ public strictfp class RobotPlayer {
 		}
 
 		if (isGardener) {
+			if (targetHex != null && myLocation.distanceTo(targetHex) < 0.1) {
+				inHex = true;
+			}
 			if (targetHex != null) {
 				rc.setIndicatorLine(myLocation, targetHex, 0, 255, 255);
 				ret += loc.distanceTo(targetHex) * 1000000;
@@ -1563,6 +1566,13 @@ public strictfp class RobotPlayer {
 				{
 					++count;
 					tot += 1000 * (1 / (0.01f + d / range));
+				}
+			}
+			for (RobotInfo ri : nearbyFriends) {
+				if (ri.type == RobotType.GARDENER && ri.ID < rc.getID()) {
+					float range = 10;
+					float d = ri.location.distanceTo(loc) - myRadius * 2;
+					ret += 1000 * (1 / (0.01f + d / range));
 				}
 			}
 			if (count > 5)
